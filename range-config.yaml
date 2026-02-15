@@ -1,4 +1,9 @@
 ludus:
+  # ============================================================
+  # DOMAIN CONTROLLER - Primary DC for ludus.domain
+  # Manages AD, DNS (domain-integrated), DHCP, Group Policy
+  # Credentials: Administrator / password (Ludus default)
+  # ============================================================
   - vm_name: "{{ range_id }}-ad-dc-win2022-server-x64"
     hostname: "{{ range_id }}-DC01-2022"
     template: win2022-server-x64-template
@@ -11,6 +16,12 @@ ludus:
     domain:
       fqdn: ludus.domain
       role: primary-dc
+
+  # ============================================================
+  # WINDOWS 11 WORKSTATION - Domain-joined end-user workstation
+  # Used for simulating user activity and lateral movement targets
+  # Credentials: ludus.domain\user / password (domain user)
+  # ============================================================
   - vm_name: "{{ range_id }}-ad-win11-22h2-enterprise-x64-1"
     hostname: "{{ range_id }}-WIN11-22H2-1"
     template: win11-22h2-x64-enterprise-template
@@ -25,8 +36,25 @@ ludus:
     domain:
       fqdn: ludus.domain
       role: member
+
+  # ============================================================
+  # WEB SERVER (Ubuntu) - Apache + PHP
+  # Repurposed from Ubuntu desktop VM
+  # Service: HTTP on port 80/443
+  # Credentials: admin/admin, webadmin/password
+  # VULNS:
+  #   - Firewall disabled (ufw inactive)
+  #   - Apache directory listing enabled (Indexes)
+  #   - World-writable document root (chmod 777)
+  #   - PHP display_errors On (verbose error messages)
+  #   - PHP expose_php On (server info leakage)
+  #   - ServerTokens Full (Apache version disclosure)
+  #   - Default Apache config comments show secure options disabled
+  #   - Running as root via apache config
+  #   - No package updates applied
+  # ============================================================
   - vm_name: "{{ range_id }}-ubuntu-24-04-x64-desktop"
-    hostname: "{{ range_id }}-Ubuntu-2404"
+    hostname: "{{ range_id }}-WEB01"
     template: ubuntu-24.04-x64-desktop-template
     vlan: 10
     ip_last_octet: 31
@@ -36,8 +64,159 @@ ludus:
     testing:
       snapshot: false
       block_internet: false
+    ansible:
+      # Install Apache and PHP packages (do NOT run apt upgrade - keep outdated packages)
+      - name: "Install Apache and PHP"
+        ansible.builtin.apt:
+          name:
+            - apache2
+            - php
+            - libapache2-mod-php
+            - php-mysql
+          state: present
+          update_cache: true
+        become: true
+
+      # VULN: Disable firewall entirely - no iptables/ufw protection
+      - name: "VULN - Disable UFW firewall"
+        ansible.builtin.shell: |
+          ufw disable
+          ufw --force reset
+        become: true
+
+      # VULN: Enable directory listing so attackers can browse all files
+      - name: "VULN - Enable Apache directory listing and verbose errors"
+        ansible.builtin.copy:
+          dest: /etc/apache2/conf-available/security.conf
+          content: |
+            # INSECURE CONFIG - Directory listing enabled, version disclosure on
+            # Secure option (DISABLED): ServerTokens Prod
+            ServerTokens Full
+            # Secure option (DISABLED): ServerSignature Off
+            ServerSignature On
+            # Secure option (DISABLED): TraceEnable Off
+            TraceEnable On
+          owner: root
+          group: root
+          mode: "0644"
+        become: true
+
+      # VULN: Overly permissive Apache vhost - allows directory indexing
+      - name: "VULN - Configure insecure default vhost"
+        ansible.builtin.copy:
+          dest: /etc/apache2/sites-available/000-default.conf
+          content: |
+            # INSECURE VHOST - Directory listing, no access controls
+            # Secure option (DISABLED): Options -Indexes -FollowSymLinks
+            # Secure option (DISABLED): AllowOverride None
+            <VirtualHost *:80>
+                ServerAdmin admin@ludus.domain
+                DocumentRoot /var/www/html
+                <Directory /var/www/html>
+                    Options Indexes FollowSymLinks
+                    AllowOverride All
+                    Require all granted
+                </Directory>
+                ErrorLog ${APACHE_LOG_DIR}/error.log
+                CustomLog ${APACHE_LOG_DIR}/access.log combined
+            </VirtualHost>
+          owner: root
+          group: root
+          mode: "0644"
+        become: true
+
+      # VULN: PHP configured to leak information and show errors
+      - name: "VULN - Configure insecure PHP settings"
+        ansible.builtin.copy:
+          dest: /etc/php/8.3/apache2/conf.d/99-insecure.ini
+          content: |
+            ; INSECURE PHP CONFIG
+            ; Secure option (DISABLED): display_errors = Off
+            display_errors = On
+            display_startup_errors = On
+            ; Secure option (DISABLED): expose_php = Off
+            expose_php = On
+            ; Secure option (DISABLED): allow_url_include = Off
+            allow_url_include = On
+            error_reporting = E_ALL
+          owner: root
+          group: root
+          mode: "0644"
+        become: true
+
+      # Create a basic index page and phpinfo page (info leak)
+      - name: "Create web content with phpinfo (info disclosure)"
+        ansible.builtin.copy:
+          dest: /var/www/html/index.html
+          content: |
+            <html>
+            <head><title>CCDC Practice Web Server</title></head>
+            <body>
+            <h1>Welcome to the CCDC Practice Range</h1>
+            <p>Web server is operational.</p>
+            <!-- TODO: Remove debug pages before production -->
+            <a href="/info.php">System Info</a>
+            </body>
+            </html>
+          owner: www-data
+          group: www-data
+          mode: "0777"
+        become: true
+
+      - name: "VULN - Create phpinfo page (information disclosure)"
+        ansible.builtin.copy:
+          dest: /var/www/html/info.php
+          content: |
+            <?php
+            // VULN: phpinfo exposes full server configuration
+            phpinfo();
+            ?>
+          owner: www-data
+          group: www-data
+          mode: "0777"
+        become: true
+
+      # VULN: Document root is world-writable
+      - name: "VULN - Set world-writable permissions on document root"
+        ansible.builtin.file:
+          path: /var/www/html
+          mode: "0777"
+          recurse: true
+        become: true
+
+      # VULN: Create weak local accounts
+      - name: "VULN - Create weak local accounts"
+        ansible.builtin.shell: |
+          useradd -m -s /bin/bash admin && echo 'admin:admin' | chpasswd
+          useradd -m -s /bin/bash webadmin && echo 'webadmin:password' | chpasswd
+          echo 'root:toor' | chpasswd
+        become: true
+        ignore_errors: true
+
+      - name: "Enable and restart Apache"
+        ansible.builtin.shell: |
+          a2enconf security
+          systemctl enable apache2
+          systemctl restart apache2
+        become: true
+
+  # ============================================================
+  # DATABASE SERVER (Debian 12) - MySQL
+  # Repurposed from Debian server VM
+  # Service: MySQL on port 3306
+  # Credentials: root/password, admin/admin, dbuser/dbuser
+  # VULNS:
+  #   - MySQL root password is "password"
+  #   - Remote root login allowed from any host (%)
+  #   - MySQL bound to 0.0.0.0 (accessible from all interfaces)
+  #   - Firewall disabled
+  #   - No package updates applied
+  #   - Test database accessible to all users
+  #   - Weak user accounts with full privileges
+  #   - Default config comments show secure options disabled
+  # ============================================================
   - vm_name: "{{ range_id }}-debian-12-x64-server"
-    hostname: "{{ range_id }}-Debian-12"
+    hostname: "{{ range_id }}-DB01"
     template: debian-12-x64-server-template
     vlan: 10
     ip_last_octet: 41
@@ -47,6 +226,596 @@ ludus:
     testing:
       snapshot: false
       block_internet: false
+    ansible:
+      # Install MySQL server (do NOT run apt upgrade - keep outdated packages)
+      - name: "Install MySQL server"
+        ansible.builtin.apt:
+          name:
+            - mariadb-server
+            - mariadb-client
+            - python3-pymysql
+          state: present
+          update_cache: true
+        become: true
+
+      # VULN: Bind MySQL to all interfaces so it's remotely accessible
+      - name: "VULN - Bind MySQL to all interfaces (0.0.0.0)"
+        ansible.builtin.copy:
+          dest: /etc/mysql/mariadb.conf.d/99-insecure.cnf
+          content: |
+            # INSECURE MySQL CONFIG
+            # Secure option (DISABLED): bind-address = 127.0.0.1
+            [mysqld]
+            bind-address = 0.0.0.0
+            # Secure option (DISABLED): local-infile = 0
+            local-infile = 1
+            # Secure option (DISABLED): skip-show-database
+            # Allows SHOW DATABASES to all users
+          owner: root
+          group: root
+          mode: "0644"
+        become: true
+
+      - name: "Start and enable MySQL"
+        ansible.builtin.systemd:
+          name: mariadb
+          state: restarted
+          enabled: true
+        become: true
+
+      # VULN: Set weak root password and allow remote root login
+      - name: "VULN - Set weak root password and create insecure users"
+        ansible.builtin.shell: |
+          mysql -u root <<EOSQL
+          -- VULN: Weak root password
+          ALTER USER 'root'@'localhost' IDENTIFIED BY 'password';
+          -- VULN: Allow root login from any host
+          CREATE USER IF NOT EXISTS 'root'@'%' IDENTIFIED BY 'password';
+          GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' WITH GRANT OPTION;
+          -- VULN: Weak admin account with full privileges
+          CREATE USER IF NOT EXISTS 'admin'@'%' IDENTIFIED BY 'admin';
+          GRANT ALL PRIVILEGES ON *.* TO 'admin'@'%' WITH GRANT OPTION;
+          -- VULN: Weak application user
+          CREATE USER IF NOT EXISTS 'dbuser'@'%' IDENTIFIED BY 'dbuser';
+          GRANT ALL PRIVILEGES ON *.* TO 'dbuser'@'%';
+          -- VULN: Leave test database accessible
+          CREATE DATABASE IF NOT EXISTS test;
+          GRANT ALL PRIVILEGES ON test.* TO ''@'%';
+          -- Create a sample CCDC database with dummy data
+          CREATE DATABASE IF NOT EXISTS ccdc_company;
+          USE ccdc_company;
+          CREATE TABLE IF NOT EXISTS employees (id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(100), email VARCHAR(100), ssn VARCHAR(11), salary DECIMAL(10,2));
+          INSERT IGNORE INTO employees VALUES (1, 'John Smith', 'jsmith@ludus.domain', '123-45-6789', 85000.00);
+          INSERT IGNORE INTO employees VALUES (2, 'Jane Doe', 'jdoe@ludus.domain', '987-65-4321', 92000.00);
+          FLUSH PRIVILEGES;
+          EOSQL
+        become: true
+
+      # VULN: Disable firewall
+      - name: "VULN - Disable firewall"
+        ansible.builtin.shell: |
+          ufw disable || true
+          iptables -F || true
+          iptables -P INPUT ACCEPT || true
+          iptables -P FORWARD ACCEPT || true
+          iptables -P OUTPUT ACCEPT || true
+        become: true
+
+      # VULN: Create weak local accounts
+      - name: "VULN - Create weak local accounts"
+        ansible.builtin.shell: |
+          useradd -m -s /bin/bash admin && echo 'admin:admin' | chpasswd
+          useradd -m -s /bin/bash dbadmin && echo 'dbadmin:password' | chpasswd
+          echo 'root:toor' | chpasswd
+        become: true
+        ignore_errors: true
+
+  # ============================================================
+  # FILE SERVER (Windows Server 2022) - SMB Shares
+  # Domain-joined to ludus.domain
+  # Service: SMB on port 445
+  # Shares: \\FILESVR\Public, \\FILESVR\Shared
+  # Credentials: Administrator / password, ludus.domain accounts
+  # VULNS:
+  #   - Everyone has Full Control on all shares
+  #   - No share passwords required
+  #   - SMBv1 enabled (EternalBlue-vulnerable protocol)
+  #   - Guest access enabled on shares
+  #   - No share-level permissions
+  #   - Firewall rules allow all SMB traffic
+  #   - Default config comments show secure options disabled
+  # ============================================================
+  - vm_name: "{{ range_id }}-win2022-filesvr"
+    hostname: "{{ range_id }}-FILESVR"
+    template: win2022-server-x64-template
+    vlan: 10
+    ip_last_octet: 51
+    ram_gb: 4
+    cpus: 2
+    windows:
+      sysprep: false
+    domain:
+      fqdn: ludus.domain
+      role: member
+    ansible:
+      # VULN: Enable SMBv1 (legacy, vulnerable to EternalBlue)
+      - name: "VULN - Enable SMBv1 protocol"
+        ansible.windows.win_powershell:
+          script: |
+            # INSECURE: Enabling SMBv1 - vulnerable to MS17-010 (EternalBlue)
+            # Secure option (DISABLED): Disable-WindowsOptionalFeature -Online -FeatureName SMB1Protocol
+            Enable-WindowsOptionalFeature -Online -FeatureName SMB1Protocol -NoRestart -ErrorAction SilentlyContinue
+            Set-SmbServerConfiguration -EnableSMB1Protocol $true -Force
+            # Secure option (DISABLED): Set-SmbServerConfiguration -EnableSMB2Protocol $true
+            Set-SmbServerConfiguration -EnableSMB2Protocol $true -Force
+
+      # Create share directories
+      - name: "Create share directories"
+        ansible.windows.win_file:
+          path: "{{ item }}"
+          state: directory
+        loop:
+          - C:\Shares\Public
+          - C:\Shares\Shared
+
+      # Create dummy files in shares
+      - name: "Create sample files in Public share"
+        ansible.windows.win_copy:
+          content: |
+            CCDC Company Internal Documents
+            This is a public file share for all employees.
+            Network credentials: admin/admin
+            WiFi Password: CompanyWifi123
+          dest: C:\Shares\Public\readme.txt
+
+      - name: "Create sample files in Shared share"
+        ansible.windows.win_copy:
+          content: |
+            IT Department Notes
+            Server passwords are stored in passwords.xlsx
+            Default admin password: P@ssw0rd!
+            Database root: password
+          dest: C:\Shares\Shared\IT_Notes.txt
+
+      # VULN: Create SMB shares with Everyone Full Control and no authentication
+      - name: "VULN - Create Public share with Everyone Full Control"
+        ansible.windows.win_powershell:
+          script: |
+            # INSECURE: Share with Everyone Full Control
+            # Secure option (DISABLED): Grant specific users Read-only access
+            New-SmbShare -Name "Public" -Path "C:\Shares\Public" -FullAccess "Everyone" -ErrorAction SilentlyContinue
+            # VULN: Allow guest access to the share
+            Grant-SmbShareAccess -Name "Public" -AccountName "Guest" -AccessRight Full -Force -ErrorAction SilentlyContinue
+            # Set NTFS permissions - Everyone Full Control
+            $acl = Get-Acl "C:\Shares\Public"
+            $rule = New-Object System.Security.AccessControl.FileSystemAccessRule("Everyone","FullControl","ContainerInherit,ObjectInherit","None","Allow")
+            $acl.SetAccessRule($rule)
+            Set-Acl "C:\Shares\Public" $acl
+
+      - name: "VULN - Create Shared share with Everyone Full Control"
+        ansible.windows.win_powershell:
+          script: |
+            # INSECURE: Share with Everyone Full Control
+            New-SmbShare -Name "Shared" -Path "C:\Shares\Shared" -FullAccess "Everyone" -ErrorAction SilentlyContinue
+            Grant-SmbShareAccess -Name "Shared" -AccountName "Guest" -AccessRight Full -Force -ErrorAction SilentlyContinue
+            $acl = Get-Acl "C:\Shares\Shared"
+            $rule = New-Object System.Security.AccessControl.FileSystemAccessRule("Everyone","FullControl","ContainerInherit,ObjectInherit","None","Allow")
+            $acl.SetAccessRule($rule)
+            Set-Acl "C:\Shares\Shared" $acl
+
+      # VULN: Enable guest access at the server level
+      - name: "VULN - Enable guest access and insecure SMB settings"
+        ansible.windows.win_powershell:
+          script: |
+            # INSECURE: Enable guest access for unauthenticated share access
+            # Secure option (DISABLED): Set-SmbServerConfiguration -RejectUnencryptedAccess $true
+            Set-SmbServerConfiguration -RejectUnencryptedAccess $false -Force
+            # Secure option (DISABLED): Disable guest fallback
+            Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\LanmanWorkstation\Parameters" -Name "AllowInsecureGuestAuth" -Value 1
+            # Enable the Guest account
+            net user Guest /active:yes
+
+      # VULN: Disable Windows Firewall entirely
+      - name: "VULN - Disable Windows Firewall"
+        ansible.windows.win_powershell:
+          script: |
+            Set-NetFirewallProfile -Profile Domain,Public,Private -Enabled False
+
+  # ============================================================
+  # MAIL SERVER (Debian 12) - Postfix + Dovecot
+  # Service: SMTP (25), POP3 (110), IMAP (143)
+  # Credentials: mail/mail, admin/admin, root/toor
+  # VULNS:
+  #   - Open relay (accepts and relays mail from any domain)
+  #   - No SMTP authentication required for relay
+  #   - Plaintext protocols only (no TLS/SSL)
+  #   - Weak local user passwords
+  #   - Firewall disabled
+  #   - Dovecot allows plaintext auth without TLS
+  #   - No SPF/DKIM/DMARC
+  #   - No package updates applied
+  # ============================================================
+  - vm_name: "{{ range_id }}-debian-12-mailsvr"
+    hostname: "{{ range_id }}-MAIL01"
+    template: debian-12-x64-server-template
+    vlan: 10
+    ip_last_octet: 61
+    ram_gb: 4
+    cpus: 2
+    linux: true
+    testing:
+      snapshot: false
+      block_internet: false
+    ansible:
+      # Install Postfix and Dovecot (do NOT run apt upgrade)
+      - name: "Set Postfix preseed selections for non-interactive install"
+        ansible.builtin.shell: |
+          debconf-set-selections <<EOF
+          postfix postfix/main_mailer_type select Internet Site
+          postfix postfix/mailname string ludus.domain
+          EOF
+        become: true
+
+      - name: "Install mail server packages"
+        ansible.builtin.apt:
+          name:
+            - postfix
+            - dovecot-imapd
+            - dovecot-pop3d
+            - mailutils
+          state: present
+          update_cache: true
+        become: true
+
+      # VULN: Configure Postfix as an open relay
+      - name: "VULN - Configure Postfix as open relay"
+        ansible.builtin.copy:
+          dest: /etc/postfix/main.cf
+          content: |
+            # INSECURE Postfix configuration - OPEN RELAY
+            # Secure option (DISABLED): smtpd_relay_restrictions = permit_mynetworks, permit_sasl_authenticated, defer_unauth_destination
+            # Secure option (DISABLED): smtpd_tls_cert_file = /etc/ssl/certs/ssl-cert-snakeoil.pem
+            # Secure option (DISABLED): smtpd_tls_key_file = /etc/ssl/private/ssl-cert-snakeoil.key
+            # Secure option (DISABLED): smtpd_tls_security_level = may
+
+            smtpd_banner = $myhostname ESMTP $mail_name (Debian/GNU)
+            biff = no
+            append_dot_mydomain = no
+
+            myhostname = mail.ludus.domain
+            mydomain = ludus.domain
+            myorigin = $mydomain
+            mydestination = $myhostname, ludus.domain, localhost.localdomain, localhost
+            mynetworks = 0.0.0.0/0
+
+            # VULN: Accept mail from anyone (open relay)
+            smtpd_relay_restrictions = permit
+
+            # VULN: No TLS - all traffic in cleartext
+            smtpd_tls_security_level = none
+
+            # VULN: No SASL authentication required
+            smtpd_sasl_auth_enable = no
+
+            inet_interfaces = all
+            inet_protocols = ipv4
+            mailbox_size_limit = 0
+            recipient_delimiter = +
+            home_mailbox = Maildir/
+          owner: root
+          group: root
+          mode: "0644"
+        become: true
+
+      # VULN: Configure Dovecot to allow plaintext auth without TLS
+      - name: "VULN - Configure insecure Dovecot"
+        ansible.builtin.copy:
+          dest: /etc/dovecot/dovecot.conf
+          content: |
+            # INSECURE Dovecot configuration
+            # Secure option (DISABLED): ssl = required
+            # Secure option (DISABLED): disable_plaintext_auth = yes
+
+            protocols = imap pop3
+            listen = *
+
+            # VULN: Allow plaintext authentication (credentials sent in clear)
+            disable_plaintext_auth = no
+
+            # VULN: No SSL/TLS required
+            ssl = no
+
+            mail_location = maildir:~/Maildir
+
+            passdb {
+              driver = pam
+            }
+
+            userdb {
+              driver = passwd
+            }
+
+            namespace inbox {
+              inbox = yes
+            }
+          owner: root
+          group: root
+          mode: "0644"
+        become: true
+
+      # VULN: Create weak mail user accounts
+      - name: "VULN - Create weak mail user accounts"
+        ansible.builtin.shell: |
+          useradd -m -s /bin/bash mail && echo 'mail:mail' | chpasswd
+          useradd -m -s /bin/bash admin && echo 'admin:admin' | chpasswd
+          useradd -m -s /bin/bash user && echo 'user:password' | chpasswd
+          echo 'root:toor' | chpasswd
+          # Create Maildir for each user
+          mkdir -p /home/mail/Maildir/{new,cur,tmp}
+          mkdir -p /home/admin/Maildir/{new,cur,tmp}
+          mkdir -p /home/user/Maildir/{new,cur,tmp}
+          chown -R mail:mail /home/mail/Maildir
+          chown -R admin:admin /home/admin/Maildir
+          chown -R user:user /home/user/Maildir
+        become: true
+        ignore_errors: true
+
+      # VULN: Disable firewall
+      - name: "VULN - Disable firewall"
+        ansible.builtin.shell: |
+          ufw disable || true
+          iptables -F || true
+          iptables -P INPUT ACCEPT || true
+          iptables -P FORWARD ACCEPT || true
+          iptables -P OUTPUT ACCEPT || true
+        become: true
+
+      - name: "Start and enable mail services"
+        ansible.builtin.shell: |
+          systemctl enable postfix
+          systemctl restart postfix
+          systemctl enable dovecot
+          systemctl restart dovecot
+        become: true
+
+  # ============================================================
+  # DNS SERVER (Windows Server 2022) - Windows DNS
+  # Domain-joined, domain-integrated DNS zones
+  # Service: DNS on port 53 (TCP/UDP)
+  # Credentials: Administrator / password, ludus.domain accounts
+  # VULNS:
+  #   - Zone transfers allowed to any host (AXFR to anyone)
+  #   - Recursive queries allowed from any source (DNS amplification)
+  #   - No DNSSEC validation
+  #   - Firewall disabled
+  #   - DNS cache poisoning possible (no source port randomization enforced)
+  #   - Verbose DNS logging disabled (no audit trail)
+  # ============================================================
+  - vm_name: "{{ range_id }}-win2022-dnssvr"
+    hostname: "{{ range_id }}-DNS01"
+    template: win2022-server-x64-template
+    vlan: 10
+    ip_last_octet: 71
+    ram_gb: 4
+    cpus: 2
+    windows:
+      sysprep: false
+    domain:
+      fqdn: ludus.domain
+      role: member
+    ansible:
+      # Install Windows DNS Server role
+      - name: "Install DNS Server role"
+        ansible.windows.win_powershell:
+          script: |
+            Install-WindowsFeature -Name DNS -IncludeManagementTools
+
+      # Configure forward lookup zone for ludus.domain
+      - name: "Configure DNS forward lookup zone"
+        ansible.windows.win_powershell:
+          script: |
+            # Add a forward lookup zone (if not already present from AD integration)
+            try {
+                Add-DnsServerPrimaryZone -Name "ludus.domain" -ReplicationScope "Domain" -ErrorAction SilentlyContinue
+            } catch {
+                Write-Output "Zone may already exist via AD integration"
+            }
+            # Add sample DNS records for services
+            Add-DnsServerResourceRecordA -ZoneName "ludus.domain" -Name "web" -IPv4Address "10.YOURRANGE.10.31" -ErrorAction SilentlyContinue
+            Add-DnsServerResourceRecordA -ZoneName "ludus.domain" -Name "db" -IPv4Address "10.YOURRANGE.10.41" -ErrorAction SilentlyContinue
+            Add-DnsServerResourceRecordA -ZoneName "ludus.domain" -Name "files" -IPv4Address "10.YOURRANGE.10.51" -ErrorAction SilentlyContinue
+            Add-DnsServerResourceRecordA -ZoneName "ludus.domain" -Name "mail" -IPv4Address "10.YOURRANGE.10.61" -ErrorAction SilentlyContinue
+            Add-DnsServerResourceRecordA -ZoneName "ludus.domain" -Name "ftp" -IPv4Address "10.YOURRANGE.10.81" -ErrorAction SilentlyContinue
+            Add-DnsServerResourceRecordMX -ZoneName "ludus.domain" -Name "." -MailExchange "mail.ludus.domain" -Preference 10 -ErrorAction SilentlyContinue
+
+      # VULN: Allow zone transfers to any server
+      - name: "VULN - Allow zone transfers to any host"
+        ansible.windows.win_powershell:
+          script: |
+            # INSECURE: Allow AXFR to any host - attackers can dump full DNS zone
+            # Secure option (DISABLED): Set-DnsServerZoneTransferPolicy to specific IPs
+            # Secure option (DISABLED): SecureSecondaries = TransferToSecureServers
+            Set-DnsServerPrimaryZone -Name "ludus.domain" -SecureSecondaries TransferAnyServer -ErrorAction SilentlyContinue
+            # Also allow for reverse zone if it exists
+            Get-DnsServerZone | Where-Object { $_.IsReverseLookupZone } | ForEach-Object {
+                Set-DnsServerPrimaryZone -Name $_.ZoneName -SecureSecondaries TransferAnyServer -ErrorAction SilentlyContinue
+            }
+
+      # VULN: Enable recursive queries from any source
+      - name: "VULN - Enable recursion from any source (DNS amplification risk)"
+        ansible.windows.win_powershell:
+          script: |
+            # INSECURE: Recursion enabled for all - can be used for DNS amplification attacks
+            # Secure option (DISABLED): Set-DnsServerRecursion -Enable $false
+            Set-DnsServerRecursion -Enable $true
+            # Secure option (DISABLED): Disable-DnsServerRootHints
+            # VULN: No DNSSEC validation
+            # Secure option (DISABLED): Set-DnsServerDsSetting -EnableDnsSec $true
+
+      # VULN: Disable Windows Firewall
+      - name: "VULN - Disable Windows Firewall"
+        ansible.windows.win_powershell:
+          script: |
+            Set-NetFirewallProfile -Profile Domain,Public,Private -Enabled False
+
+      # VULN: Disable DNS logging (no audit trail)
+      - name: "VULN - Disable DNS event logging (hide attacker activity)"
+        ansible.windows.win_powershell:
+          script: |
+            # INSECURE: Disable DNS debug/event logging
+            # Secure option (DISABLED): Set-DnsServerDiagnostics -All $true
+            Set-DnsServerDiagnostics -All $false
+
+  # ============================================================
+  # FTP SERVER (Ubuntu 24.04) - vsftpd
+  # Service: FTP on port 21
+  # Credentials: ftpuser/ftpuser, admin/admin, root/toor
+  # VULNS:
+  #   - Anonymous access enabled with upload permissions
+  #   - Writable FTP root directory
+  #   - No TLS/SSL encryption (cleartext credentials)
+  #   - Weak local user accounts
+  #   - Firewall disabled
+  #   - FTP running with root privileges
+  #   - No chroot for local users (directory traversal)
+  #   - No package updates applied
+  # ============================================================
+  - vm_name: "{{ range_id }}-ubuntu-24-04-ftpsvr"
+    hostname: "{{ range_id }}-FTP01"
+    template: ubuntu-24.04-x64-server-template
+    vlan: 10
+    ip_last_octet: 81
+    ram_gb: 4
+    cpus: 2
+    linux: true
+    testing:
+      snapshot: false
+      block_internet: false
+    ansible:
+      # Install vsftpd (do NOT run apt upgrade - keep outdated packages)
+      - name: "Install vsftpd"
+        ansible.builtin.apt:
+          name:
+            - vsftpd
+            - ftp
+          state: present
+          update_cache: true
+        become: true
+
+      # VULN: Configure vsftpd with anonymous access and no TLS
+      - name: "VULN - Configure insecure vsftpd"
+        ansible.builtin.copy:
+          dest: /etc/vsftpd.conf
+          content: |
+            # INSECURE vsftpd configuration
+            # Secure option (DISABLED): anonymous_enable=NO
+            # Secure option (DISABLED): ssl_enable=YES
+            # Secure option (DISABLED): chroot_local_user=YES
+            # Secure option (DISABLED): allow_writeable_chroot=NO
+
+            listen=YES
+            listen_ipv6=NO
+
+            # VULN: Anonymous access enabled
+            anonymous_enable=YES
+            anon_upload_enable=YES
+            anon_mkdir_write_enable=YES
+            anon_other_write_enable=YES
+            anon_root=/srv/ftp
+
+            # Local user access
+            local_enable=YES
+            write_enable=YES
+
+            # VULN: No chroot - users can traverse entire filesystem
+            chroot_local_user=NO
+
+            # VULN: No TLS - credentials sent in cleartext
+            ssl_enable=NO
+
+            # VULN: Writable root
+            anon_umask=000
+            local_umask=000
+            file_open_mode=0777
+
+            # VULN: Verbose banner with version info
+            ftpd_banner=Welcome to CCDC Practice FTP Server (vsftpd 3.0.5)
+
+            # PAM service
+            pam_service_name=vsftpd
+
+            # Logging
+            xferlog_enable=YES
+            connect_from_port_20=YES
+
+            # VULN: Allow FTP bounce attacks
+            # Secure option (DISABLED): pasv_promiscuous=NO
+            pasv_promiscuous=YES
+            port_promiscuous=YES
+
+            # Passive mode ports
+            pasv_min_port=40000
+            pasv_max_port=40100
+          owner: root
+          group: root
+          mode: "0644"
+        become: true
+
+      # Create FTP directories and set insecure permissions
+      - name: "Create FTP directories with insecure permissions"
+        ansible.builtin.shell: |
+          mkdir -p /srv/ftp/pub
+          mkdir -p /srv/ftp/upload
+          mkdir -p /srv/ftp/incoming
+          # VULN: World-writable FTP root
+          chmod -R 777 /srv/ftp
+          chown -R ftp:ftp /srv/ftp
+          # Create sample files
+          echo "Public FTP files - CCDC Practice Range" > /srv/ftp/pub/readme.txt
+          echo "Upload directory - anonymous uploads allowed" > /srv/ftp/upload/readme.txt
+          # VULN: Credentials left in an accessible file
+          echo "Backup credentials - admin:admin, root:toor, ftpuser:ftpuser" > /srv/ftp/pub/backup_notes.txt
+        become: true
+
+      # VULN: Create weak local accounts
+      - name: "VULN - Create weak local accounts"
+        ansible.builtin.shell: |
+          useradd -m -s /bin/bash ftpuser && echo 'ftpuser:ftpuser' | chpasswd
+          useradd -m -s /bin/bash admin && echo 'admin:admin' | chpasswd
+          echo 'root:toor' | chpasswd
+        become: true
+        ignore_errors: true
+
+      # Ensure ftp user is not in vsftpd deny list
+      - name: "Allow FTP users in PAM config"
+        ansible.builtin.shell: |
+          # Remove users from deny lists so they can log in via FTP
+          sed -i '/^ftpuser$/d' /etc/ftpusers 2>/dev/null || true
+          sed -i '/^admin$/d' /etc/ftpusers 2>/dev/null || true
+        become: true
+
+      # VULN: Disable firewall
+      - name: "VULN - Disable firewall"
+        ansible.builtin.shell: |
+          ufw disable || true
+          iptables -F || true
+          iptables -P INPUT ACCEPT || true
+          iptables -P FORWARD ACCEPT || true
+          iptables -P OUTPUT ACCEPT || true
+        become: true
+
+      - name: "Enable and start vsftpd"
+        ansible.builtin.systemd:
+          name: vsftpd
+          state: restarted
+          enabled: true
+        become: true
+
+  # ============================================================
+  # KALI LINUX - Attacker machine (Red Team)
+  # Used for penetration testing and CCDC red team simulation
+  # On VLAN 99 (separate attacker network)
+  # ============================================================
   - vm_name: "{{ range_id }}-kali"
     hostname: "{{ range_id }}-kali"
     template: kali-x64-desktop-template
@@ -59,28 +828,61 @@ ludus:
       snapshot: false
       block_internet: false
 
+# ============================================================
+# NETWORK RULES
+# VLAN 10 = Service/Corporate network (all servers + workstation)
+# VLAN 99 = Attacker network (Kali)
+# Allowed ports: HTTP(80,443,8080), FTP(21), SSH(22),
+#   SMTP(25), POP3(110), IMAP(143), MySQL(3306), DNS(53)
+# ============================================================
 network:
   inter_vlan_default: REJECT
   rules:
-    - name: Only allow windows to kali on 443
+    # Allow service traffic from VLAN 10 to Kali (for callbacks, C2, etc.)
+    - name: Allow VLAN 10 to Kali on HTTP/HTTPS
       vlan_src: 10
       vlan_dst: 99
       protocol: tcp
-      ports: 443
+      ports: 80,443,8080
       action: ACCEPT
-    - name: Only allow windows to kali on 80
+
+    - name: Allow VLAN 10 to Kali on FTP and SSH
       vlan_src: 10
       vlan_dst: 99
       protocol: tcp
-      ports: 80
+      ports: 21,22
       action: ACCEPT
-    - name: Only allow windows to kali on 8080
+
+    - name: Allow VLAN 10 to Kali on mail ports
       vlan_src: 10
       vlan_dst: 99
       protocol: tcp
-      ports: 8080
-      action: ACCEPT          
-    - name: Allow kali to all windows
+      ports: 25,110,143
+      action: ACCEPT
+
+    - name: Allow VLAN 10 to Kali on MySQL
+      vlan_src: 10
+      vlan_dst: 99
+      protocol: tcp
+      ports: 3306
+      action: ACCEPT
+
+    - name: Allow VLAN 10 to Kali on DNS TCP
+      vlan_src: 10
+      vlan_dst: 99
+      protocol: tcp
+      ports: 53
+      action: ACCEPT
+
+    - name: Allow VLAN 10 to Kali on DNS UDP
+      vlan_src: 10
+      vlan_dst: 99
+      protocol: udp
+      ports: 53
+      action: ACCEPT
+
+    # Allow Kali full access to all service VMs for red team operations
+    - name: Allow Kali to all service VMs (red team access)
       vlan_src: 99
       vlan_dst: 10
       protocol: all

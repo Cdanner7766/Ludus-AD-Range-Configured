@@ -1,3 +1,5 @@
+# yaml-language-server: $schema=https://docs.ludus.cloud/schemas/range-config.json
+#
 ludus:
   # ============================================================
   # DOMAIN CONTROLLER - Primary DC for ludus.domain
@@ -12,7 +14,7 @@ ludus:
     ram_gb: 8
     cpus: 4
     windows:
-      sysprep: false
+      sysprep: true
     domain:
       fqdn: ludus.domain
       role: primary-dc
@@ -23,13 +25,14 @@ ludus:
   # Credentials: ludus.domain\user / password (domain user)
   # ============================================================
   - vm_name: "{{ range_id }}-ad-win11-22h2-enterprise-x64-1"
-    hostname: "{{ range_id }}-WIN11-22H2-1"
+    hostname: "{{ range_id }}-PC01-W11"
     template: win11-22h2-x64-enterprise-template
     vlan: 10
     ip_last_octet: 21
     ram_gb: 8
     cpus: 4
     windows:
+      sysprep: true
       install_additional_tools: true
       office_version: 2019
       office_arch: 64bit
@@ -333,7 +336,7 @@ ludus:
     ram_gb: 4
     cpus: 2
     windows:
-      sysprep: false
+      sysprep: true
     domain:
       fqdn: ludus.domain
       role: member
@@ -599,7 +602,7 @@ ludus:
     ram_gb: 4
     cpus: 2
     windows:
-      sysprep: false
+      sysprep: true
     domain:
       fqdn: ludus.domain
       role: member
@@ -614,18 +617,22 @@ ludus:
       - name: "Configure DNS forward lookup zone"
         ansible.windows.win_powershell:
           script: |
-            # Add a forward lookup zone (if not already present from AD integration)
+            # Add a standard primary zone (not AD-integrated, since this is a member server)
             try {
-                Add-DnsServerPrimaryZone -Name "ludus.domain" -ReplicationScope "Domain" -ErrorAction SilentlyContinue
+                Add-DnsServerPrimaryZone -Name "ludus.domain" -ZoneFile "ludus.domain.dns" -ErrorAction SilentlyContinue
             } catch {
-                Write-Output "Zone may already exist via AD integration"
+                Write-Output "Zone may already exist"
             }
-            # Add sample DNS records for services
-            Add-DnsServerResourceRecordA -ZoneName "ludus.domain" -Name "web" -IPv4Address "10.YOURRANGE.10.31" -ErrorAction SilentlyContinue
-            Add-DnsServerResourceRecordA -ZoneName "ludus.domain" -Name "db" -IPv4Address "10.YOURRANGE.10.41" -ErrorAction SilentlyContinue
-            Add-DnsServerResourceRecordA -ZoneName "ludus.domain" -Name "files" -IPv4Address "10.YOURRANGE.10.51" -ErrorAction SilentlyContinue
-            Add-DnsServerResourceRecordA -ZoneName "ludus.domain" -Name "mail" -IPv4Address "10.YOURRANGE.10.61" -ErrorAction SilentlyContinue
-            Add-DnsServerResourceRecordA -ZoneName "ludus.domain" -Name "ftp" -IPv4Address "10.YOURRANGE.10.81" -ErrorAction SilentlyContinue
+            # Derive the range network base from this VM's own IP address
+            $myIp = (Get-NetIPAddress -InterfaceAlias "Ethernet*" -AddressFamily IPv4 | Where-Object { $_.IPAddress -like "10.*" }).IPAddress
+            $parts = $myIp.Split('.')
+            $base = "$($parts[0]).$($parts[1]).$($parts[2])"
+            # Add sample DNS records for services using dynamically derived IPs
+            Add-DnsServerResourceRecordA -ZoneName "ludus.domain" -Name "web" -IPv4Address "$base.31" -ErrorAction SilentlyContinue
+            Add-DnsServerResourceRecordA -ZoneName "ludus.domain" -Name "db" -IPv4Address "$base.41" -ErrorAction SilentlyContinue
+            Add-DnsServerResourceRecordA -ZoneName "ludus.domain" -Name "files" -IPv4Address "$base.51" -ErrorAction SilentlyContinue
+            Add-DnsServerResourceRecordA -ZoneName "ludus.domain" -Name "mail" -IPv4Address "$base.61" -ErrorAction SilentlyContinue
+            Add-DnsServerResourceRecordA -ZoneName "ludus.domain" -Name "ftp" -IPv4Address "$base.81" -ErrorAction SilentlyContinue
             Add-DnsServerResourceRecordMX -ZoneName "ludus.domain" -Name "." -MailExchange "mail.ludus.domain" -Preference 10 -ErrorAction SilentlyContinue
 
       # VULN: Allow zone transfers to any server
@@ -667,7 +674,7 @@ ludus:
             Set-DnsServerDiagnostics -All $false
 
   # ============================================================
-  # FTP SERVER (Ubuntu 24.04) - vsftpd
+  # FTP SERVER (Ubuntu 22.04) - vsftpd
   # Service: FTP on port 21
   # Credentials: ftpuser/ftpuser, admin/admin, root/toor
   # VULNS:
@@ -682,7 +689,7 @@ ludus:
   # ============================================================
   - vm_name: "{{ range_id }}-ubuntu-24-04-ftpsvr"
     hostname: "{{ range_id }}-FTP01"
-    template: ubuntu-24.04-x64-server-template
+    template: ubuntu-22.04-x64-server-template
     vlan: 10
     ip_last_octet: 81
     ram_gb: 4

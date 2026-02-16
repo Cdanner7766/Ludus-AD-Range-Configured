@@ -835,61 +835,28 @@ ludus:
       snapshot: false
       block_internet: false
 
-# ============================================================
-# NETWORK RULES
-# VLAN 10 = Service/Corporate network (all servers + workstation)
-# VLAN 99 = Attacker network (Kali)
-# Allowed ports: HTTP(80,443,8080), FTP(21), SSH(22),
-#   SMTP(25), POP3(110), IMAP(143), MySQL(3306), DNS(53)
-# ============================================================
 network:
   inter_vlan_default: REJECT
   rules:
-    # Allow service traffic from VLAN 10 to Kali (for callbacks, C2, etc.)
-    - name: Allow VLAN 10 to Kali on HTTP/HTTPS
+    - name: Only allow windows to kali on 443
       vlan_src: 10
       vlan_dst: 99
       protocol: tcp
-      ports: 80,443,8080
+      ports: 443
       action: ACCEPT
-
-    - name: Allow VLAN 10 to Kali on FTP and SSH
+    - name: Only allow windows to kali on 80
       vlan_src: 10
       vlan_dst: 99
       protocol: tcp
-      ports: 21,22
+      ports: 80
       action: ACCEPT
-
-    - name: Allow VLAN 10 to Kali on mail ports
+    - name: Only allow windows to kali on 8080
       vlan_src: 10
       vlan_dst: 99
       protocol: tcp
-      ports: 25,110,143
-      action: ACCEPT
-
-    - name: Allow VLAN 10 to Kali on MySQL
-      vlan_src: 10
-      vlan_dst: 99
-      protocol: tcp
-      ports: 3306
-      action: ACCEPT
-
-    - name: Allow VLAN 10 to Kali on DNS TCP
-      vlan_src: 10
-      vlan_dst: 99
-      protocol: tcp
-      ports: 53
-      action: ACCEPT
-
-    - name: Allow VLAN 10 to Kali on DNS UDP
-      vlan_src: 10
-      vlan_dst: 99
-      protocol: udp
-      ports: 53
-      action: ACCEPT
-
-    # Allow Kali full access to all service VMs for red team operations
-    - name: Allow Kali to all service VMs (red team access)
+      ports: 8080
+      action: ACCEPT          
+    - name: Allow kali to all windows
       vlan_src: 99
       vlan_dst: 10
       protocol: all

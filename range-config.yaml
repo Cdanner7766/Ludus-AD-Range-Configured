@@ -1,13 +1,5 @@
 # yaml-language-server: $schema=https://docs.ludus.cloud/schemas/range-config.json
 #
-# NOTE: This config uses the following non-default templates that must be
-# manually added to your Ludus server before deploying:
-#   - ubuntu-24.04-x64-desktop-template (for WEB01)
-#   - ubuntu-24.04-x64-server-template  (for FTP01)
-# Add them with: ludus templates add -d <template-dir> && ludus templates build
-# Built-in templates used: win2022-server-x64-template, win11-22h2-x64-enterprise-template,
-#   debian-12-x64-server-template, kali-x64-desktop-template
-#
 ludus:
   # ============================================================
   # DOMAIN CONTROLLER - Primary DC for ludus.domain
@@ -682,7 +674,7 @@ ludus:
             Set-DnsServerDiagnostics -All $false
 
   # ============================================================
-  # FTP SERVER (Ubuntu 24.04) - vsftpd
+  # FTP SERVER (Ubuntu 22.04) - vsftpd
   # Service: FTP on port 21
   # Credentials: ftpuser/ftpuser, admin/admin, root/toor
   # VULNS:
@@ -697,7 +689,7 @@ ludus:
   # ============================================================
   - vm_name: "{{ range_id }}-ubuntu-24-04-ftpsvr"
     hostname: "{{ range_id }}-FTP01"
-    template: ubuntu-24.04-x64-server-template
+    template: ubuntu-22.04-x64-server-template
     vlan: 10
     ip_last_octet: 81
     ram_gb: 4

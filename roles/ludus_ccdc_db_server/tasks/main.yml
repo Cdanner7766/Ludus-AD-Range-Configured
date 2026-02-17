@@ -55,7 +55,8 @@
     GRANT ALL PRIVILEGES ON *.* TO 'dbuser'@'%';
     -- VULN: Leave test database accessible
     CREATE DATABASE IF NOT EXISTS test;
-    GRANT ALL PRIVILEGES ON test.* TO ''@'%';
+    CREATE USER IF NOT EXISTS 'testuser'@'%' IDENTIFIED BY 'testuser';
+    GRANT ALL PRIVILEGES ON test.* TO 'testuser'@'%';
     -- Create a sample CCDC database with dummy data
     CREATE DATABASE IF NOT EXISTS ccdc_company;
     USE ccdc_company;

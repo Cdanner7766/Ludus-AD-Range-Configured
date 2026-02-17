@@ -39,10 +39,19 @@
   become: true
 
 # VULN: Set weak root password and allow remote root login
+# Handles both fresh deploy (unix_socket auth) and re-deploy (password auth)
 - name: "VULN - Set weak root password and create insecure users"
   ansible.builtin.shell: |
-    set -euo pipefail
-    mariadb --protocol=socket -S /run/mysqld/mysqld.sock <<'EOSQL'
+    # Determine how to connect: unix_socket (fresh) or password (re-deploy)
+    if mysql -u root -e "SELECT 1" 2>/dev/null; then
+      MYSQL_CMD="mysql -u root"
+    elif mysql -u root -ppassword -e "SELECT 1" 2>/dev/null; then
+      MYSQL_CMD="mysql -u root -ppassword"
+    else
+      echo "ERROR: Cannot connect to MariaDB as root"
+      exit 1
+    fi
+    $MYSQL_CMD <<EOSQL
     -- VULN: Weak root password
     ALTER USER 'root'@'localhost' IDENTIFIED BY 'password';
 

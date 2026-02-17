@@ -1,0 +1,122 @@
+---
+# tasks file for ludus_ccdc_ftp_server
+# Configures vsftpd FTP server with intentional CCDC vulnerabilities
+
+# Install vsftpd (do NOT run apt upgrade - keep outdated packages)
+- name: "Install vsftpd"
+  ansible.builtin.apt:
+    name:
+      - vsftpd
+      - ftp
+    state: present
+    update_cache: true
+  become: true
+
+# VULN: Configure vsftpd with anonymous access and no TLS
+- name: "VULN - Configure insecure vsftpd"
+  ansible.builtin.copy:
+    dest: /etc/vsftpd.conf
+    content: |
+      # INSECURE vsftpd configuration
+      # Secure option (DISABLED): anonymous_enable=NO
+      # Secure option (DISABLED): ssl_enable=YES
+      # Secure option (DISABLED): chroot_local_user=YES
+      # Secure option (DISABLED): allow_writeable_chroot=NO
+
+      listen=YES
+      listen_ipv6=NO
+
+      # VULN: Anonymous access enabled
+      anonymous_enable=YES
+      anon_upload_enable=YES
+      anon_mkdir_write_enable=YES
+      anon_other_write_enable=YES
+      anon_root=/srv/ftp
+
+      # Local user access
+      local_enable=YES
+      write_enable=YES
+
+      # VULN: No chroot - users can traverse entire filesystem
+      chroot_local_user=NO
+
+      # VULN: No TLS - credentials sent in cleartext
+      ssl_enable=NO
+
+      # VULN: Writable root
+      anon_umask=000
+      local_umask=000
+      file_open_mode=0777
+
+      # VULN: Verbose banner with version info
+      ftpd_banner=Welcome to CCDC Practice FTP Server (vsftpd 3.0.5)
+
+      # PAM service
+      pam_service_name=vsftpd
+
+      # Logging
+      xferlog_enable=YES
+      connect_from_port_20=YES
+
+      # VULN: Allow FTP bounce attacks
+      # Secure option (DISABLED): pasv_promiscuous=NO
+      pasv_promiscuous=YES
+      port_promiscuous=YES
+
+      # Passive mode ports
+      pasv_min_port=40000
+      pasv_max_port=40100
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+
+# Create FTP directories and set insecure permissions
+- name: "Create FTP directories with insecure permissions"
+  ansible.builtin.shell: |
+    mkdir -p /srv/ftp/pub
+    mkdir -p /srv/ftp/upload
+    mkdir -p /srv/ftp/incoming
+    # VULN: World-writable FTP root
+    chmod -R 777 /srv/ftp
+    chown -R ftp:ftp /srv/ftp
+    # Create sample files
+    echo "Public FTP files - CCDC Practice Range" > /srv/ftp/pub/readme.txt
+    echo "Upload directory - anonymous uploads allowed" > /srv/ftp/upload/readme.txt
+    # VULN: Credentials left in an accessible file
+    echo "Backup credentials - admin:admin, root:toor, ftpuser:ftpuser" > /srv/ftp/pub/backup_notes.txt
+  become: true
+
+# VULN: Create weak local accounts
+- name: "VULN - Create weak local accounts"
+  ansible.builtin.shell: |
+    useradd -m -s /bin/bash ftpuser && echo 'ftpuser:ftpuser' | chpasswd
+    useradd -m -s /bin/bash admin && echo 'admin:admin' | chpasswd
+    echo 'root:toor' | chpasswd
+  become: true
+  ignore_errors: true
+
+# Ensure ftp user is not in vsftpd deny list
+- name: "Allow FTP users in PAM config"
+  ansible.builtin.shell: |
+    # Remove users from deny lists so they can log in via FTP
+    sed -i '/^ftpuser$/d' /etc/ftpusers 2>/dev/null || true
+    sed -i '/^admin$/d' /etc/ftpusers 2>/dev/null || true
+  become: true
+
+# VULN: Disable firewall
+- name: "VULN - Disable firewall"
+  ansible.builtin.shell: |
+    ufw disable || true
+    iptables -F || true
+    iptables -P INPUT ACCEPT || true
+    iptables -P FORWARD ACCEPT || true
+    iptables -P OUTPUT ACCEPT || true
+  become: true
+
+- name: "Enable and start vsftpd"
+  ansible.builtin.systemd:
+    name: vsftpd
+    state: restarted
+    enabled: true
+  become: true

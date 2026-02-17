@@ -1,0 +1,15 @@
+---
+galaxy_info:
+  author: CCDC Range
+  description: vsftpd FTP server with intentional CCDC practice vulnerabilities
+  license: MIT
+  min_ansible_version: "2.10"
+  platforms:
+    - name: Ubuntu
+      versions:
+        - all
+  galaxy_tags:
+    - ftp
+    - vsftpd
+    - ccdc
+dependencies: []

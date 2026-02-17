@@ -1,0 +1,16 @@
+---
+galaxy_info:
+  author: CCDC Range
+  description: Postfix + Dovecot mail server with intentional CCDC practice vulnerabilities
+  license: MIT
+  min_ansible_version: "2.10"
+  platforms:
+    - name: Debian
+      versions:
+        - bookworm
+  galaxy_tags:
+    - mail
+    - postfix
+    - dovecot
+    - ccdc
+dependencies: []

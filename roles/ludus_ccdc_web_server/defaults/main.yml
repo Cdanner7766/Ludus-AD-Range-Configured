@@ -1,0 +1,5 @@
+---
+# defaults file for ludus_ccdc_web_server
+
+# Path to PHP Apache ini conf.d directory (varies by PHP version)
+ludus_ccdc_web_server_php_ini_path: /etc/php/8.3/apache2/conf.d/99-insecure.ini

@@ -14,7 +14,7 @@ ludus:
     ram_gb: 8
     cpus: 4
     windows:
-      sysprep: true
+      sysprep: false
     domain:
       fqdn: ludus.domain
       role: primary-dc

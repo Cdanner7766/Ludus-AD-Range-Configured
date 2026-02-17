@@ -1,0 +1,134 @@
+---
+# tasks file for ludus_ccdc_mail_server
+# Configures Postfix + Dovecot mail server with intentional CCDC vulnerabilities
+
+# Install Postfix and Dovecot (do NOT run apt upgrade)
+- name: "Set Postfix preseed selections for non-interactive install"
+  ansible.builtin.shell: |
+    debconf-set-selections <<EOF
+    postfix postfix/main_mailer_type select Internet Site
+    postfix postfix/mailname string ludus.domain
+    EOF
+  become: true
+
+- name: "Install mail server packages"
+  ansible.builtin.apt:
+    name:
+      - postfix
+      - dovecot-imapd
+      - dovecot-pop3d
+      - mailutils
+    state: present
+    update_cache: true
+  become: true
+
+# VULN: Configure Postfix as an open relay
+- name: "VULN - Configure Postfix as open relay"
+  ansible.builtin.copy:
+    dest: /etc/postfix/main.cf
+    content: |
+      # INSECURE Postfix configuration - OPEN RELAY
+      # Secure option (DISABLED): smtpd_relay_restrictions = permit_mynetworks, permit_sasl_authenticated, defer_unauth_destination
+      # Secure option (DISABLED): smtpd_tls_cert_file = /etc/ssl/certs/ssl-cert-snakeoil.pem
+      # Secure option (DISABLED): smtpd_tls_key_file = /etc/ssl/private/ssl-cert-snakeoil.key
+      # Secure option (DISABLED): smtpd_tls_security_level = may
+
+      smtpd_banner = $myhostname ESMTP $mail_name (Debian/GNU)
+      biff = no
+      append_dot_mydomain = no
+
+      myhostname = mail.ludus.domain
+      mydomain = ludus.domain
+      myorigin = $mydomain
+      mydestination = $myhostname, ludus.domain, localhost.localdomain, localhost
+      mynetworks = 0.0.0.0/0
+
+      # VULN: Accept mail from anyone (open relay)
+      smtpd_relay_restrictions = permit
+
+      # VULN: No TLS - all traffic in cleartext
+      smtpd_tls_security_level = none
+
+      # VULN: No SASL authentication required
+      smtpd_sasl_auth_enable = no
+
+      inet_interfaces = all
+      inet_protocols = ipv4
+      mailbox_size_limit = 0
+      recipient_delimiter = +
+      home_mailbox = Maildir/
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+
+# VULN: Configure Dovecot to allow plaintext auth without TLS
+- name: "VULN - Configure insecure Dovecot"
+  ansible.builtin.copy:
+    dest: /etc/dovecot/dovecot.conf
+    content: |
+      # INSECURE Dovecot configuration
+      # Secure option (DISABLED): ssl = required
+      # Secure option (DISABLED): disable_plaintext_auth = yes
+
+      protocols = imap pop3
+      listen = *
+
+      # VULN: Allow plaintext authentication (credentials sent in clear)
+      disable_plaintext_auth = no
+
+      # VULN: No SSL/TLS required
+      ssl = no
+
+      mail_location = maildir:~/Maildir
+
+      passdb {
+        driver = pam
+      }
+
+      userdb {
+        driver = passwd
+      }
+
+      namespace inbox {
+        inbox = yes
+      }
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+
+# VULN: Create weak mail user accounts
+- name: "VULN - Create weak mail user accounts"
+  ansible.builtin.shell: |
+    useradd -m -s /bin/bash mail && echo 'mail:mail' | chpasswd
+    useradd -m -s /bin/bash admin && echo 'admin:admin' | chpasswd
+    useradd -m -s /bin/bash user && echo 'user:password' | chpasswd
+    echo 'root:toor' | chpasswd
+    # Create Maildir for each user
+    mkdir -p /home/mail/Maildir/{new,cur,tmp}
+    mkdir -p /home/admin/Maildir/{new,cur,tmp}
+    mkdir -p /home/user/Maildir/{new,cur,tmp}
+    chown -R mail:mail /home/mail/Maildir
+    chown -R admin:admin /home/admin/Maildir
+    chown -R user:user /home/user/Maildir
+  become: true
+  ignore_errors: true
+
+# VULN: Disable firewall
+- name: "VULN - Disable firewall"
+  ansible.builtin.shell: |
+    ufw disable || true
+    iptables -F || true
+    iptables -P INPUT ACCEPT || true
+    iptables -P FORWARD ACCEPT || true
+    iptables -P OUTPUT ACCEPT || true
+  become: true
+
+- name: "Start and enable mail services"
+  ansible.builtin.shell: |
+    systemctl enable postfix
+    systemctl restart postfix
+    systemctl enable dovecot
+    systemctl restart dovecot
+  become: true

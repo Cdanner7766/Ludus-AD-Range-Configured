@@ -1,0 +1,138 @@
+---
+# tasks file for ludus_ccdc_web_server
+# Configures Apache + PHP web server with intentional CCDC vulnerabilities
+
+# Install Apache and PHP packages (do NOT run apt upgrade - keep outdated packages)
+- name: "Install Apache and PHP"
+  ansible.builtin.apt:
+    name:
+      - apache2
+      - php
+      - libapache2-mod-php
+      - php-mysql
+    state: present
+    update_cache: true
+  become: true
+
+# VULN: Disable firewall entirely - no iptables/ufw protection
+- name: "VULN - Disable UFW firewall"
+  ansible.builtin.shell: |
+    ufw disable
+    ufw --force reset
+  become: true
+
+# VULN: Enable directory listing so attackers can browse all files
+- name: "VULN - Enable Apache directory listing and verbose errors"
+  ansible.builtin.copy:
+    dest: /etc/apache2/conf-available/security.conf
+    content: |
+      # INSECURE CONFIG - Directory listing enabled, version disclosure on
+      # Secure option (DISABLED): ServerTokens Prod
+      ServerTokens Full
+      # Secure option (DISABLED): ServerSignature Off
+      ServerSignature On
+      # Secure option (DISABLED): TraceEnable Off
+      TraceEnable On
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+
+# VULN: Overly permissive Apache vhost - allows directory indexing
+- name: "VULN - Configure insecure default vhost"
+  ansible.builtin.copy:
+    dest: /etc/apache2/sites-available/000-default.conf
+    content: |
+      # INSECURE VHOST - Directory listing, no access controls
+      # Secure option (DISABLED): Options -Indexes -FollowSymLinks
+      # Secure option (DISABLED): AllowOverride None
+      <VirtualHost *:80>
+          ServerAdmin admin@ludus.domain
+          DocumentRoot /var/www/html
+          <Directory /var/www/html>
+              Options Indexes FollowSymLinks
+              AllowOverride All
+              Require all granted
+          </Directory>
+          ErrorLog ${APACHE_LOG_DIR}/error.log
+          CustomLog ${APACHE_LOG_DIR}/access.log combined
+      </VirtualHost>
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+
+# VULN: PHP configured to leak information and show errors
+- name: "VULN - Configure insecure PHP settings"
+  ansible.builtin.copy:
+    dest: "{{ ludus_ccdc_web_server_php_ini_path }}"
+    content: |
+      ; INSECURE PHP CONFIG
+      ; Secure option (DISABLED): display_errors = Off
+      display_errors = On
+      display_startup_errors = On
+      ; Secure option (DISABLED): expose_php = Off
+      expose_php = On
+      ; Secure option (DISABLED): allow_url_include = Off
+      allow_url_include = On
+      error_reporting = E_ALL
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+
+# Create a basic index page and phpinfo page (info leak)
+- name: "Create web content with phpinfo (info disclosure)"
+  ansible.builtin.copy:
+    dest: /var/www/html/index.html
+    content: |
+      <html>
+      <head><title>CCDC Practice Web Server</title></head>
+      <body>
+      <h1>Welcome to the CCDC Practice Range</h1>
+      <p>Web server is operational.</p>
+      <!-- TODO: Remove debug pages before production -->
+      <a href="/info.php">System Info</a>
+      </body>
+      </html>
+    owner: www-data
+    group: www-data
+    mode: "0777"
+  become: true
+
+- name: "VULN - Create phpinfo page (information disclosure)"
+  ansible.builtin.copy:
+    dest: /var/www/html/info.php
+    content: |
+      <?php
+      // VULN: phpinfo exposes full server configuration
+      phpinfo();
+      ?>
+    owner: www-data
+    group: www-data
+    mode: "0777"
+  become: true
+
+# VULN: Document root is world-writable
+- name: "VULN - Set world-writable permissions on document root"
+  ansible.builtin.file:
+    path: /var/www/html
+    mode: "0777"
+    recurse: true
+  become: true
+
+# VULN: Create weak local accounts
+- name: "VULN - Create weak local accounts"
+  ansible.builtin.shell: |
+    useradd -m -s /bin/bash admin && echo 'admin:admin' | chpasswd
+    useradd -m -s /bin/bash webadmin && echo 'webadmin:password' | chpasswd
+    echo 'root:toor' | chpasswd
+  become: true
+  ignore_errors: true
+
+- name: "Enable and restart Apache"
+  ansible.builtin.shell: |
+    a2enconf security
+    systemctl enable apache2
+    systemctl restart apache2
+  become: true

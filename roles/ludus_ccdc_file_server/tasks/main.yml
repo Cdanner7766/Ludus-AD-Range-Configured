@@ -1,0 +1,86 @@
+---
+# tasks file for ludus_ccdc_file_server
+# Configures Windows SMB file server with intentional CCDC vulnerabilities
+
+# VULN: Enable SMBv1 (legacy, vulnerable to EternalBlue)
+- name: "VULN - Enable SMBv1 protocol"
+  ansible.windows.win_powershell:
+    script: |
+      # INSECURE: Enabling SMBv1 - vulnerable to MS17-010 (EternalBlue)
+      # Secure option (DISABLED): Disable-WindowsOptionalFeature -Online -FeatureName SMB1Protocol
+      Enable-WindowsOptionalFeature -Online -FeatureName SMB1Protocol -NoRestart -ErrorAction SilentlyContinue
+      Set-SmbServerConfiguration -EnableSMB1Protocol $true -Force
+      # Secure option (DISABLED): Set-SmbServerConfiguration -EnableSMB2Protocol $true
+      Set-SmbServerConfiguration -EnableSMB2Protocol $true -Force
+
+# Create share directories
+- name: "Create share directories"
+  ansible.windows.win_file:
+    path: "{{ item }}"
+    state: directory
+  loop:
+    - C:\Shares\Public
+    - C:\Shares\Shared
+
+# Create dummy files in shares
+- name: "Create sample files in Public share"
+  ansible.windows.win_copy:
+    content: |
+      CCDC Company Internal Documents
+      This is a public file share for all employees.
+      Network credentials: admin/admin
+      WiFi Password: CompanyWifi123
+    dest: C:\Shares\Public\readme.txt
+
+- name: "Create sample files in Shared share"
+  ansible.windows.win_copy:
+    content: |
+      IT Department Notes
+      Server passwords are stored in passwords.xlsx
+      Default admin password: P@ssw0rd!
+      Database root: password
+    dest: C:\Shares\Shared\IT_Notes.txt
+
+# VULN: Create SMB shares with Everyone Full Control and no authentication
+- name: "VULN - Create Public share with Everyone Full Control"
+  ansible.windows.win_powershell:
+    script: |
+      # INSECURE: Share with Everyone Full Control
+      # Secure option (DISABLED): Grant specific users Read-only access
+      New-SmbShare -Name "Public" -Path "C:\Shares\Public" -FullAccess "Everyone" -ErrorAction SilentlyContinue
+      # VULN: Allow guest access to the share
+      Grant-SmbShareAccess -Name "Public" -AccountName "Guest" -AccessRight Full -Force -ErrorAction SilentlyContinue
+      # Set NTFS permissions - Everyone Full Control
+      $acl = Get-Acl "C:\Shares\Public"
+      $rule = New-Object System.Security.AccessControl.FileSystemAccessRule("Everyone","FullControl","ContainerInherit,ObjectInherit","None","Allow")
+      $acl.SetAccessRule($rule)
+      Set-Acl "C:\Shares\Public" $acl
+
+- name: "VULN - Create Shared share with Everyone Full Control"
+  ansible.windows.win_powershell:
+    script: |
+      # INSECURE: Share with Everyone Full Control
+      New-SmbShare -Name "Shared" -Path "C:\Shares\Shared" -FullAccess "Everyone" -ErrorAction SilentlyContinue
+      Grant-SmbShareAccess -Name "Shared" -AccountName "Guest" -AccessRight Full -Force -ErrorAction SilentlyContinue
+      $acl = Get-Acl "C:\Shares\Shared"
+      $rule = New-Object System.Security.AccessControl.FileSystemAccessRule("Everyone","FullControl","ContainerInherit,ObjectInherit","None","Allow")
+      $acl.SetAccessRule($rule)
+      Set-Acl "C:\Shares\Shared" $acl
+
+# VULN: Enable guest access at the server level
+- name: "VULN - Enable guest access and insecure SMB settings"
+  ansible.windows.win_powershell:
+    script: |
+      # INSECURE: Enable guest access for unauthenticated share access
+      # Secure option (DISABLED): Set-SmbServerConfiguration -RejectUnencryptedAccess $true
+      Set-SmbServerConfiguration -RejectUnencryptedAccess $false -Force
+      # Secure option (DISABLED): Disable guest fallback
+      Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\LanmanWorkstation\Parameters" -Name "AllowInsecureGuestAuth" -Value 1
+      # Enable the Guest account
+      net user Guest /active:yes
+
+# VULN: Disable Windows Firewall entirely
+- name: "VULN - Disable Windows Firewall"
+  ansible.windows.win_powershell:
+    script: |
+      Set-NetFirewallProfile -Profile Domain,Public,Private -Enabled False

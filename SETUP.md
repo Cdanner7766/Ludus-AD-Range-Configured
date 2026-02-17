@@ -92,3 +92,27 @@ role_vars:
 ```
 
 If your Ubuntu template has a different PHP version, override this in the VM's `role_vars` in `range-config.yaml`.
+
+## Step 5: Validate the Deployment
+
+After deployment completes, SSH into the Kali VM and run the validation script:
+
+```bash
+# Copy the script to Kali (from the Ludus host)
+scp scripts/test_range.sh kali:~/
+
+# SSH into Kali and run it
+ssh kali
+chmod +x ~/test_range.sh
+./test_range.sh
+```
+
+The script auto-detects your range network and tests:
+- Network connectivity (ping) to all 8 VMs
+- Web server: HTTP 200, index page, phpinfo, server headers
+- Database: Port 3306, weak credential login, sample data
+- File server: SMB ports, anonymous share listing, file read
+- Mail server: SMTP/IMAP/POP3 ports, open relay, banners
+- DNS server: Record resolution, MX records, zone transfer
+- FTP server: Port 21, banner, anonymous file access
+- Domain controller: DNS, Kerberos, LDAP, SMB ports

@@ -41,6 +41,7 @@
 # VULN: Set weak root password and allow remote root login
 - name: "VULN - Set weak root password and create insecure users"
   ansible.builtin.shell: |
+    set -euo pipefail
     mariadb --protocol=socket -S /run/mysqld/mysqld.sock <<'EOSQL'
     -- VULN: Weak root password
     ALTER USER 'root'@'localhost' IDENTIFIED BY 'password';
@@ -57,8 +58,7 @@
     CREATE USER IF NOT EXISTS 'dbuser'@'%' IDENTIFIED BY 'dbuser';
     GRANT ALL PRIVILEGES ON *.* TO 'dbuser'@'%';
 
-    -- VULN: Leave test database accessible (pick ONE of the two blocks below)
-
+    -- VULN: Leave test database accessible (explicit weak user)
     CREATE DATABASE IF NOT EXISTS test;
     CREATE USER IF NOT EXISTS 'testuser'@'%' IDENTIFIED BY 'testuser';
     GRANT ALL PRIVILEGES ON test.* TO 'testuser'@'%';

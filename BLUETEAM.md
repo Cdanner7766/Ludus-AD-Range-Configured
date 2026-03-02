@@ -55,11 +55,11 @@
 
 **Web Application — Company Portal (`http://10.X.10.31/`):**
 
-| Account | Email / Username | Password | Notes |
-|---------|-----------------|----------|-------|
-| Portal user | `jsmith@ludus.domain` | any non-empty | Password not checked — any value works |
-| Portal user | `jdoe@ludus.domain` | any non-empty | Password not checked — any value works |
-| Portal backdoor | `admin` | `admin` | Hardcoded — does not require DB connection |
+| Account | Email / Username | Password |
+|---------|-----------------|----------|
+| Portal user | `jsmith@ludus.domain` | `password` |
+| Portal user | `jdoe@ludus.domain` | `password` |
+| Portal admin | `admin` | `admin` |
 
 ### Database Server (DB01)
 

@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CCDC Scoring Engine — Range {{ range_id }}</title>
+  <link rel="stylesheet"
+        href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+  <style>
+    :root {
+      --bs-body-bg: #0d1117;
+      --bs-body-color: #e6edf3;
+      --card-bg: #161b22;
+      --border-color: #30363d;
+    }
+
+    body {
+      background: var(--bs-body-bg);
+      color: var(--bs-body-color);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+    }
+
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+    }
+
+    .score-card {
+      transition: transform .15s;
+    }
+    .score-card:hover { transform: translateY(-2px); }
+
+    .score-value {
+      font-size: 2.4rem;
+      font-weight: 700;
+      letter-spacing: -1px;
+    }
+
+    .score-label {
+      font-size: .75rem;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      opacity: .65;
+    }
+
+    /* Services table */
+    .services-table th {
+      background: #1c2128;
+      color: #8b949e;
+      font-size: .75rem;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      border-color: var(--border-color) !important;
+    }
+    .services-table td {
+      border-color: var(--border-color) !important;
+      vertical-align: middle;
+    }
+    .services-table tbody tr:hover { background: #1c2128; }
+
+    /* Status badges */
+    .badge-up   { background: #238636; color: #fff; }
+    .badge-down { background: #b91c1c; color: #fff; }
+    .badge-pending { background: #6e7681; color: #fff; }
+
+    /* Uptime bar */
+    .uptime-bar {
+      height: 6px;
+      border-radius: 3px;
+      background: #21262d;
+      overflow: hidden;
+    }
+    .uptime-bar-fill {
+      height: 100%;
+      border-radius: 3px;
+      transition: width .4s;
+    }
+
+    /* Countdown ring */
+    .countdown-text {
+      font-size: 1.1rem;
+      font-weight: 600;
+    }
+
+    /* History table */
+    .history-table th, .history-table td {
+      font-size: .82rem;
+      border-color: var(--border-color) !important;
+      vertical-align: middle;
+    }
+    .history-table th {
+      background: #1c2128;
+      color: #8b949e;
+    }
+
+    /* Round score pill */
+    .round-pill {
+      font-size: .78rem;
+      padding: 2px 8px;
+      border-radius: 12px;
+    }
+
+    code { color: #79c0ff; font-size: .82rem; }
+
+    .checking-pulse {
+      animation: pulse 1s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: .4; }
+    }
+
+    #chart-container { position: relative; height: 200px; }
+  </style>
+</head>
+<body>
+
+<!-- ─── HEADER ─────────────────────────────────────────────────────────── -->
+<nav class="border-bottom" style="border-color: var(--border-color) !important; background: var(--card-bg);">
+  <div class="container-fluid px-4 py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <div>
+      <span class="fw-bold fs-5">&#x1F6E1; CCDC Blue Team Scoring Engine</span>
+      <span class="ms-3 badge" style="background:#21262d; color:#8b949e;">
+        Range {{ range_id }} &nbsp;|&nbsp; {{ base_net }}.0/24
+      </span>
+    </div>
+    <div class="d-flex align-items-center gap-3">
+      <div id="checking-indicator" class="{% if is_checking %}checking-pulse{% endif %}"
+           style="color: {% if is_checking %}#3fb950{% else %}#8b949e{% endif %};">
+        <small>
+          {% if is_checking %}
+            &#9679; Checking...
+          {% elif last_check_time %}
+            &#9679; Last: {{ last_check_time }}
+          {% else %}
+            &#9679; Waiting for first check...
+          {% endif %}
+        </small>
+      </div>
+      <div>
+        <small style="color:#8b949e;">
+          Next in <span id="countdown">{{ next_check_in }}</span>s
+        </small>
+      </div>
+      <button class="btn btn-sm btn-outline-secondary" onclick="location.reload()">&#x21BB; Refresh</button>
+    </div>
+  </div>
+</nav>
+
+<div class="container-fluid px-4 py-4">
+
+  <!-- ─── SCORE SUMMARY CARDS ─────────────────────────────────────────── -->
+  <div class="row g-3 mb-4">
+
+    <div class="col-6 col-md-3">
+      <div class="card score-card p-3 text-center">
+        <div class="score-label">Current Round</div>
+        <div class="score-value" id="round-score"
+             style="color: {% if round_score == max_score_per_round %}#3fb950{% elif round_score > max_score_per_round // 2 %}#f0883e{% else %}#f85149{% endif %};">
+          {{ round_score }}
+        </div>
+        <div style="font-size:.8rem; color:#8b949e;">/ {{ max_score_per_round }} pts</div>
+        <div class="mt-2 uptime-bar">
+          <div class="uptime-bar-fill"
+               style="width:{{ (round_score / max_score_per_round * 100) | round(1) }}%;
+                      background:{% if round_score == max_score_per_round %}#3fb950{% elif round_score > max_score_per_round // 2 %}#f0883e{% else %}#f85149{% endif %};">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-6 col-md-3">
+      <div class="card score-card p-3 text-center">
+        <div class="score-label">Cumulative Score</div>
+        <div class="score-value" id="cumulative-score" style="color:#58a6ff;">
+          {{ cumulative_score }}
+        </div>
+        <div style="font-size:.8rem; color:#8b949e;">all rounds</div>
+      </div>
+    </div>
+
+    <div class="col-6 col-md-3">
+      <div class="card score-card p-3 text-center">
+        <div class="score-label">Rounds Completed</div>
+        <div class="score-value" id="round-count" style="color:#bc8cff;">
+          {{ round_count }}
+        </div>
+        <div style="font-size:.8rem; color:#8b949e;">
+          interval: {{ check_interval }}s
+        </div>
+      </div>
+    </div>
+
+    <div class="col-6 col-md-3">
+      <div class="card score-card p-3 text-center">
+        <div class="score-label">Services Up</div>
+        {% set up_count = services | selectattr('up', 'eq', true) | list | length %}
+        {% set total_count = services | length %}
+        <div class="score-value"
+             style="color:{% if up_count == total_count %}#3fb950{% elif up_count > total_count // 2 %}#f0883e{% else %}#f85149{% endif %};">
+          {{ up_count }}
+        </div>
+        <div style="font-size:.8rem; color:#8b949e;">/ {{ total_count }}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── SERVICE STATUS TABLE ────────────────────────────────────────── -->
+  <div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center py-2 px-3"
+         style="background:#1c2128; border-bottom:1px solid var(--border-color);">
+      <span class="fw-semibold" style="font-size:.9rem;">Service Status</span>
+      <small style="color:#8b949e;">Deep checks — points accumulate each round</small>
+    </div>
+    <div class="table-responsive">
+      <table class="table mb-0 services-table">
+        <thead>
+          <tr>
+            <th class="px-3">Machine</th>
+            <th>Service</th>
+            <th>Target</th>
+            <th>Status</th>
+            <th class="text-end">Pts / Round</th>
+            <th class="text-end">Total Pts</th>
+            <th style="min-width:110px;">Uptime</th>
+            <th style="min-width:260px;">Last Check Message</th>
+          </tr>
+        </thead>
+        <tbody id="services-tbody">
+          {% for svc in services %}
+          <tr data-svc="{{ svc.id }}">
+            <td class="px-3 fw-semibold" style="font-size:.85rem; white-space:nowrap;">
+              {{ svc.machine }}
+            </td>
+            <td style="font-size:.85rem;">{{ svc.name }}</td>
+            <td><code>{{ svc.host }}:{{ svc.port }}</code></td>
+            <td>
+              {% if svc.up is none %}
+                <span class="badge badge-pending rounded-pill">PENDING</span>
+              {% elif svc.up %}
+                <span class="badge badge-up rounded-pill">UP</span>
+              {% else %}
+                <span class="badge badge-down rounded-pill">DOWN</span>
+              {% endif %}
+            </td>
+            <td class="text-end fw-semibold">+{{ svc.points_per_round }}</td>
+            <td class="text-end" style="color:#79c0ff;">{{ svc.total_points }}</td>
+            <td>
+              <div class="d-flex align-items-center gap-2">
+                <div class="uptime-bar flex-grow-1">
+                  <div class="uptime-bar-fill"
+                       style="width:{{ svc.uptime_pct }}%;
+                              background:{% if svc.uptime_pct >= 95 %}#3fb950{% elif svc.uptime_pct >= 70 %}#f0883e{% else %}#f85149{% endif %};">
+                  </div>
+                </div>
+                <small style="color:#8b949e; white-space:nowrap;">{{ svc.uptime_pct }}%</small>
+              </div>
+            </td>
+            <td style="font-size:.78rem; color:#8b949e; max-width:260px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"
+                title="{{ svc.message }}">
+              {{ svc.message }}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ─── SCORE HISTORY CHART ─────────────────────────────────────────── -->
+  {% if score_history %}
+  <div class="card mb-4">
+    <div class="card-header py-2 px-3"
+         style="background:#1c2128; border-bottom:1px solid var(--border-color);">
+      <span class="fw-semibold" style="font-size:.9rem;">Score History (last {{ score_history|length }} rounds)</span>
+    </div>
+    <div class="p-3">
+      <div id="chart-container">
+        <canvas id="scoreChart"></canvas>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- ─── RECENT ROUNDS TABLE ─────────────────────────────────────────── -->
+  {% if recent_rounds %}
+  <div class="card mb-4">
+    <div class="card-header py-2 px-3"
+         style="background:#1c2128; border-bottom:1px solid var(--border-color);">
+      <span class="fw-semibold" style="font-size:.9rem;">Recent Rounds</span>
+    </div>
+    <div class="table-responsive">
+      <table class="table mb-0 history-table">
+        <thead>
+          <tr>
+            <th class="px-3">#</th>
+            <th>Timestamp</th>
+            <th class="text-end">Round Score</th>
+            <th class="text-end">Max</th>
+            <th>Result</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for rnd in recent_rounds %}
+          {% set pct = (rnd.round_score / rnd.max_score * 100) | round(0) | int %}
+          <tr>
+            <td class="px-3" style="color:#8b949e;">{{ rnd.id }}</td>
+            <td style="color:#8b949e;">{{ rnd.timestamp }}</td>
+            <td class="text-end fw-semibold"
+                style="color:{% if pct == 100 %}#3fb950{% elif pct >= 50 %}#f0883e{% else %}#f85149{% endif %};">
+              {{ rnd.round_score }}
+            </td>
+            <td class="text-end" style="color:#6e7681;">{{ rnd.max_score }}</td>
+            <td>
+              <div class="d-flex align-items-center gap-2">
+                <div class="uptime-bar" style="width:120px;">
+                  <div class="uptime-bar-fill"
+                       style="width:{{ pct }}%;
+                              background:{% if pct == 100 %}#3fb950{% elif pct >= 50 %}#f0883e{% else %}#f85149{% endif %};">
+                  </div>
+                </div>
+                <small style="color:#8b949e;">{{ pct }}%</small>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
+</div><!-- /container-fluid -->
+
+<!-- ─── SCRIPTS ──────────────────────────────────────────────────────────── -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+<script>
+// ── Chart.js score history ───────────────────────────────────────────────
+{% if score_history %}
+(function () {
+  const labels  = {{ score_history | map(attribute='timestamp') | list | tojson }};
+  const scores  = {{ score_history | map(attribute='round_score') | list | tojson }};
+  const maxScores = {{ score_history | map(attribute='max_score') | list | tojson }};
+
+  const ctx = document.getElementById('scoreChart').getContext('2d');
+  new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: [
+        {
+          label: 'Round Score',
+          data: scores,
+          borderColor: '#58a6ff',
+          backgroundColor: 'rgba(88,166,255,0.12)',
+          fill: true,
+          tension: 0.3,
+          pointRadius: 3,
+          pointHoverRadius: 5,
+        },
+        {
+          label: 'Max Score',
+          data: maxScores,
+          borderColor: '#3fb950',
+          borderDash: [6, 3],
+          backgroundColor: 'transparent',
+          pointRadius: 0,
+          tension: 0,
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { intersect: false, mode: 'index' },
+      plugins: {
+        legend: { labels: { color: '#8b949e', boxWidth: 14 } },
+        tooltip: {
+          backgroundColor: '#1c2128',
+          borderColor: '#30363d',
+          borderWidth: 1,
+          titleColor: '#e6edf3',
+          bodyColor: '#8b949e',
+        }
+      },
+      scales: {
+        x: {
+          ticks: { color: '#8b949e', maxTicksLimit: 8, maxRotation: 0 },
+          grid:  { color: '#21262d' },
+        },
+        y: {
+          min: 0,
+          ticks: { color: '#8b949e' },
+          grid:  { color: '#21262d' },
+        }
+      }
+    }
+  });
+})();
+{% endif %}
+
+// ── Live polling: update badge statuses and counters via /api/status ─────
+(function () {
+  const POLL_MS = 10000;  // poll every 10 seconds
+
+  async function poll() {
+    try {
+      const resp = await fetch('/api/status');
+      if (!resp.ok) return;
+      const data = await resp.json();
+
+      // Update score cards
+      document.getElementById('round-score').textContent = data.round_score;
+      document.getElementById('cumulative-score').textContent = data.cumulative_score;
+      document.getElementById('round-count').textContent = data.round_count;
+
+      // Update countdown
+      document.getElementById('countdown').textContent = data.next_check_in;
+
+      // Update indicator
+      const ind = document.getElementById('checking-indicator');
+      if (data.is_checking) {
+        ind.style.color = '#3fb950';
+        ind.innerHTML = '<small>&#9679; Checking...</small>';
+        ind.classList.add('checking-pulse');
+      } else if (data.last_check_time) {
+        ind.style.color = '#8b949e';
+        ind.innerHTML = '<small>&#9679; Last: ' + data.last_check_time + '</small>';
+        ind.classList.remove('checking-pulse');
+      }
+
+      // Update per-service badges
+      for (const [sid, svc] of Object.entries(data.services)) {
+        const row = document.querySelector('tr[data-svc="' + sid + '"]');
+        if (!row) continue;
+
+        const badgeCell = row.querySelector('td:nth-child(4)');
+        if (svc.up === null || svc.up === undefined) {
+          badgeCell.innerHTML = '<span class="badge badge-pending rounded-pill">PENDING</span>';
+        } else if (svc.up) {
+          badgeCell.innerHTML = '<span class="badge badge-up rounded-pill">UP</span>';
+        } else {
+          badgeCell.innerHTML = '<span class="badge badge-down rounded-pill">DOWN</span>';
+        }
+
+        // Update last message
+        const msgCell = row.querySelector('td:last-child');
+        if (msgCell) {
+          msgCell.textContent = svc.message;
+          msgCell.title = svc.message;
+        }
+      }
+    } catch (e) {
+      // Silently ignore network errors
+    }
+  }
+
+  // Also update the countdown every second locally
+  setInterval(function () {
+    const el = document.getElementById('countdown');
+    const val = parseInt(el.textContent, 10);
+    if (!isNaN(val) && val > 0) el.textContent = val - 1;
+  }, 1000);
+
+  setInterval(poll, POLL_MS);
+  poll();  // run immediately
+})();
+</script>
+
+</body>
+</html>

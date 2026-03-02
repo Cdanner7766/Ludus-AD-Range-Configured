@@ -92,6 +92,7 @@ VLAN 99 - Attacker Network (10.X.99.0/24)
 | RAM / CPUs | 4 GB / 2 |
 | Service | Apache 2 + PHP 8.3 |
 | Ports | 80/tcp (HTTP) |
+| Web App | Company intranet portal — login, dashboard, employee directory |
 
 **Credentials:**
 
@@ -118,6 +119,12 @@ VLAN 99 - Attacker Network (10.X.99.0/24)
 | 10 | **World-writable document root** | `chmod 777` on `/var/www/html` — any user can modify web content | Directory permissions |
 | 11 | **Weak local accounts** | `admin:admin`, `webadmin:password`, `root:toor` | `/etc/passwd`, `/etc/shadow` |
 | 12 | **No package updates** | System packages intentionally not upgraded | apt upgrade skipped |
+| 13 | **SQL injection — login** | `$email` concatenated directly into `WHERE email='$email'` — bypass with `' OR 1=1 LIMIT 1 -- -` | `/var/www/html/index.php` |
+| 14 | **SQL injection — employee search** | `?q=` appended into `LIKE '%$search%'` — UNION-based extraction possible | `/var/www/html/employees.php` |
+| 15 | **Reflected XSS — employee search** | Search term echoed without `htmlspecialchars` — `<script>` payload executes | `/var/www/html/employees.php` |
+| 16 | **Hardcoded admin backdoor** | email=`admin` / password=`admin` bypasses DB entirely — always works | `/var/www/html/index.php` |
+| 17 | **DB credentials in PHP source** | `admin:admin` hardcoded in plaintext in world-readable files | `/var/www/html/index.php`, `employees.php` |
+| 18 | **No password verification** | Any non-empty password authenticates once a DB row matches the email | `/var/www/html/index.php` |
 
 ---
 
@@ -386,6 +393,14 @@ VLAN 99 - Attacker Network (10.X.99.0/24)
 - No TLS on FTP (cleartext credentials)
 - SMB encryption not required (`RejectUnencryptedAccess = $false`)
 
+### Web Application
+- SQL injection on login page (`/index.php` email field — no prepared statements)
+- SQL injection in employee search (`/employees.php?q=` — UNION extraction possible)
+- Reflected XSS in employee search (unsanitized output)
+- Hardcoded admin backdoor (email=`admin`, password=`admin` — bypasses database)
+- DB credentials hardcoded in world-readable PHP source (`admin:admin`)
+- No password verification — any non-empty password authenticates a matched email
+
 ### Information Disclosure
 - Apache `ServerTokens Full` and `ServerSignature On`
 - PHP `expose_php = On` and `display_errors = On`
@@ -415,10 +430,10 @@ VLAN 99 - Attacker Network (10.X.99.0/24)
 
 | Machine | Vulnerability Count |
 |---------|:-------------------:|
-| WEB01 | 12 |
+| WEB01 | 18 |
 | DB01 | 10 |
 | FILESVR | 8 |
 | MAIL01 | 9 |
 | DNS01 | 5 |
 | FTP01 | 10 |
-| **Total** | **54** |
+| **Total** | **60** |

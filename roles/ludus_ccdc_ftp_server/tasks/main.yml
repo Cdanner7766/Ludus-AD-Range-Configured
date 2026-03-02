@@ -48,6 +48,12 @@
       local_umask=000
       file_open_mode=0777
 
+      # Required: vsftpd refuses to chroot into a world-writable directory
+      # unless this option is set. Without it, every anonymous login returns
+      # "500 OOPS: refusing to run with writable root inside chroot()" and
+      # the session is dropped. This must be YES to keep anonymous FTP alive.
+      allow_writeable_chroot=YES
+
       # VULN: Verbose banner with version info
       ftpd_banner=Welcome to CCDC Practice FTP Server (vsftpd 3.0.5)
 

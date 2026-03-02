@@ -44,12 +44,22 @@
 
 ### Web Server (WEB01)
 
+**OS Accounts:**
+
 | Account | Username | Password |
 |---------|----------|----------|
 | Default user | `debian` | `debian` |
 | Local user | `admin` | `admin` |
 | Local user | `webadmin` | `password` |
 | Root | `root` | `toor` |
+
+**Web Application — Company Portal (`http://10.X.10.31/`):**
+
+| Account | Email / Username | Password |
+|---------|-----------------|----------|
+| Portal user | `jsmith@ludus.domain` | `password` |
+| Portal user | `jdoe@ludus.domain` | `password` |
+| Portal admin | `admin` | `admin` |
 
 ### Database Server (DB01)
 

@@ -4,24 +4,60 @@ Range ID and target IPs are auto-detected from the Kali machine's IP address.
 Kali lives on 10.{RANGE_ID}.99.x and services are on 10.{RANGE_ID}.10.x
 """
 
+import os
 import subprocess
 
 
 def _detect_range_id():
-    """Detect the Ludus range ID from Kali's IP (10.X.99.Y pattern)."""
-    try:
-        result = subprocess.run(
-            ["ip", "addr", "show"], capture_output=True, text=True, timeout=5
-        )
-        for line in result.stdout.splitlines():
-            if "inet " not in line or "127.0.0.1" in line:
+    """
+    Detect the Ludus range ID from Kali's IP (10.X.99.Y pattern).
+    Tries 'ip addr show' (searching common paths), then falls back to
+    parsing /proc/net/if_inet6 / /proc/net/fib_trie if ip(8) is absent.
+    """
+    # Common locations for 'ip' on Debian/Kali/Ubuntu
+    ip_candidates = [
+        "ip",
+        "/sbin/ip",
+        "/usr/sbin/ip",
+        "/bin/ip",
+        "/usr/bin/ip",
+    ]
+
+    for cmd in ip_candidates:
+        try:
+            result = subprocess.run(
+                [cmd, "addr", "show"],
+                capture_output=True, text=True, timeout=5,
+            )
+            if result.returncode != 0:
                 continue
-            ip = line.strip().split()[1].split("/")[0]
-            parts = ip.split(".")
-            if len(parts) == 4 and parts[0] == "10" and parts[2] == "99":
-                return int(parts[1])
+            for line in result.stdout.splitlines():
+                if "inet " not in line or "127.0.0.1" in line:
+                    continue
+                ip = line.strip().split()[1].split("/")[0]
+                parts = ip.split(".")
+                if len(parts) == 4 and parts[0] == "10" and parts[2] == "99":
+                    return int(parts[1])
+        except (FileNotFoundError, PermissionError, subprocess.TimeoutExpired):
+            continue
+        except Exception:
+            break
+
+    # Fallback: parse /proc/net/fib_trie (Linux only, no external tool needed)
+    try:
+        with open("/proc/net/fib_trie") as f:
+            for line in f:
+                line = line.strip()
+                if line.startswith("LOCAL") or not line[0].isdigit():
+                    continue
+                ip = line.split()[0]
+                parts = ip.split(".")
+                if (len(parts) == 4 and parts[0] == "10"
+                        and parts[2] == "99" and parts[3] != "255"):
+                    return int(parts[1])
     except Exception:
         pass
+
     return 10  # Default fallback
 
 

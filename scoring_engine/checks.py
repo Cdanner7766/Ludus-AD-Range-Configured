@@ -8,7 +8,6 @@ not just that the port is open.
 import socket
 import ftplib
 import smtplib
-import struct
 import urllib.request
 import urllib.error
 
@@ -85,7 +84,10 @@ def check_ftp(host, port):
             ftp.quit()
             return True, f"Anonymous login OK | {banner[:60]}"
         except ftplib.error_perm:
-            ftp.quit()
+            try:
+                ftp.quit()
+            except Exception:
+                pass
             return True, f"Service UP (anonymous denied) | {banner[:60]}"
     except ftplib.all_errors as e:
         return False, f"FTP error: {e}"

@@ -66,7 +66,7 @@ ludus range deploy -t user-defined-roles --limit <VM_NAME> --only-roles <ROLE_NA
 
 | Role | VM | OS | Service | Ports |
 |------|----|----|---------|-------|
-| `ludus_ccdc_web_server` | WEB01 | Ubuntu 24.04 | Apache + PHP | 80, 443 |
+| `ludus_ccdc_web_server` | WEB01 | Ubuntu 24.04 | Apache + PHP + Company Portal | 80, 443 |
 | `ludus_ccdc_db_server` | DB01 | Debian 12 | MariaDB/MySQL | 3306 |
 | `ludus_ccdc_file_server` | FILESVR | Windows Server 2022 | SMB Shares | 445 |
 | `ludus_ccdc_mail_server` | MAIL01 | Debian 12 | Postfix + Dovecot | 25, 110, 143 |
@@ -109,7 +109,7 @@ chmod +x ~/test_range.sh
 
 The script auto-detects your range network and tests:
 - Network connectivity (ping) to all 8 VMs
-- Web server: HTTP 200, index page, phpinfo, server headers
+- Web server: HTTP 200, company portal login page, phpinfo, server headers
 - Database: Port 3306, weak credential login, sample data
 - File server: SMB ports, anonymous share listing, file read
 - Mail server: SMTP/IMAP/POP3 ports, open relay, banners

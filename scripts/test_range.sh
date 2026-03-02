@@ -107,11 +107,11 @@ else
     fail "HTTP response: ${HTTP_CODE:-timeout} (expected 200)"
 fi
 
-# Check index page content
-if curl -s --connect-timeout 5 "http://${WEB}/" 2>/dev/null | grep -q "CCDC Practice"; then
-    pass "Index page contains expected content"
+# Check index page content (company portal login)
+if curl -s --connect-timeout 5 "http://${WEB}/" 2>/dev/null | grep -qi "Ludus Corporation\|Employee Portal"; then
+    pass "Company portal login page served correctly"
 else
-    fail "Index page missing expected content"
+    fail "Company portal login page missing expected content"
 fi
 
 # phpinfo page (vulnerability check)

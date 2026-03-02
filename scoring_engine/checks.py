@@ -83,11 +83,20 @@ def check_ftp(host, port):
             ftp.login("anonymous", "scoring@ccdc.test")
             ftp.quit()
             return True, f"Anonymous login OK | {banner[:60]}"
-        except ftplib.error_perm:
+        except ftplib.error_perm as e:
             try:
                 ftp.quit()
             except Exception:
                 pass
+            err = str(e)
+            # vsftpd sends "500 OOPS: refusing to run with writable root
+            # inside chroot()" when anon_root is world-writable and
+            # allow_writeable_chroot=YES is absent. That is a misconfigured
+            # service, not just anonymous-disabled → score it as DOWN.
+            if "500" in err and "OOPS" in err:
+                return False, f"vsftpd OOPS — writable chroot not allowed: {err[:80]}"
+            # Any other 5xx means anonymous login is disabled but the
+            # service itself is running fine (e.g. blue team locked it down).
             return True, f"Service UP (anonymous denied) | {banner[:60]}"
     except ftplib.all_errors as e:
         return False, f"FTP error: {e}"

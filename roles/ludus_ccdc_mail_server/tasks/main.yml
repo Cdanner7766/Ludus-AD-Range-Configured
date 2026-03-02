@@ -99,12 +99,18 @@
   become: true
 
 # VULN: Create weak mail user accounts
+# Note: 'mail' is a Debian system user (uid 8) that already exists.
+# useradd will fail for it, so we separate account creation from password
+# setting so chpasswd always runs regardless of whether useradd succeeded.
 - name: "VULN - Create weak mail user accounts"
   ansible.builtin.shell: |
-    useradd -m -s /bin/bash mail && echo 'mail:mail' | chpasswd
-    useradd -m -s /bin/bash admin && echo 'admin:admin' | chpasswd
-    useradd -m -s /bin/bash user && echo 'user:password' | chpasswd
-    echo 'root:toor' | chpasswd
+    useradd -m -s /bin/bash mail 2>/dev/null || true
+    useradd -m -s /bin/bash admin 2>/dev/null || true
+    useradd -m -s /bin/bash user 2>/dev/null || true
+    echo 'mail:mail'     | chpasswd
+    echo 'admin:admin'   | chpasswd
+    echo 'user:password' | chpasswd
+    echo 'root:toor'     | chpasswd
     # Create Maildir for each user
     mkdir -p /home/mail/Maildir/{new,cur,tmp}
     mkdir -p /home/admin/Maildir/{new,cur,tmp}

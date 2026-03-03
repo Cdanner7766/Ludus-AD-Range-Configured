@@ -1,0 +1,6 @@
+---
+galaxy_info:
+  author: CDA
+  description: Blue team workstation tools for CCDC Win11 VM
+  min_ansible_version: "2.9"
+dependencies: []

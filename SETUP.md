@@ -5,7 +5,6 @@
 - Ludus host (v1.5+) with the following templates available:
   - `win2022-server-x64-template`
   - `win11-22h2-x64-enterprise-template`
-  - `ubuntu-24.04-x64-desktop-template`
   - `debian-12-x64-server-template`
   - `ubuntu-22.04-x64-server-template`
   - `kali-x64-desktop-template`
@@ -66,7 +65,7 @@ ludus range deploy -t user-defined-roles --limit <VM_NAME> --only-roles <ROLE_NA
 
 | Role | VM | OS | Service | Ports |
 |------|----|----|---------|-------|
-| `ludus_ccdc_web_server` | WEB01 | Ubuntu 24.04 | Apache + PHP + Company Portal | 80, 443 |
+| `ludus_ccdc_web_server` | WEB01 | Ubuntu 22.04 | Apache + PHP + Company Portal | 80, 443 |
 | `ludus_ccdc_db_server` | DB01 | Debian 12 | MariaDB/MySQL | 3306 |
 | `ludus_ccdc_file_server` | FILESVR | Windows Server 2022 | SMB Shares | 445 |
 | `ludus_ccdc_mail_server` | MAIL01 | Debian 12 | Postfix + Dovecot | 25, 110, 143 |

@@ -33,12 +33,14 @@ ludus:
     cpus: 4
     windows:
       sysprep: true
-      install_additional_tools: true
+      install_additional_tools: false
       office_version: 2019
       office_arch: 64bit
     domain:
       fqdn: ludus.domain
       role: member
+    roles:
+      - ludus_ccdc_workstation
 
   # ============================================================
   # WEB SERVER (Ubuntu) - Apache + PHP

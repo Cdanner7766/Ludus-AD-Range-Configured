@@ -56,9 +56,9 @@ ludus:
   #   - Running as root via apache config
   #   - No package updates applied
   # ============================================================
-  - vm_name: "{{ range_id }}-ubuntu-24-04-x64-desktop"
+  - vm_name: "{{ range_id }}-ubuntu-22-04-x64-server"
     hostname: "{{ range_id }}-WEB01"
-    template: ubuntu-24.04-x64-desktop-template
+    template: ubuntu-22.04-x64-server-template
     vlan: 10
     ip_last_octet: 31
     ram_gb: 4
@@ -69,6 +69,8 @@ ludus:
       block_internet: false
     roles:
       - ludus_ccdc_web_server
+    role_vars:
+      ludus_ccdc_web_server_php_ini_path: /etc/php/8.1/apache2/conf.d/99-insecure.ini
 
   # ============================================================
   # DATABASE SERVER (Debian 12) - MySQL

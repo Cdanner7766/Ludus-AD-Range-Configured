@@ -2,6 +2,27 @@
 # tasks file for ludus_ccdc_web_server
 # Configures Apache + PHP web server with intentional CCDC vulnerabilities
 
+# Install XFCE desktop environment + LightDM so the server has a GUI
+- name: "Install XFCE desktop and LightDM"
+  ansible.builtin.apt:
+    name:
+      - xfce4
+      - xfce4-goodies
+      - lightdm
+    state: present
+    update_cache: true
+  become: true
+
+- name: "Set LightDM as default display manager"
+  ansible.builtin.shell: echo "/usr/sbin/lightdm" > /etc/X11/default-display-manager
+  become: true
+
+- name: "Enable LightDM service"
+  ansible.builtin.systemd:
+    name: lightdm
+    enabled: true
+  become: true
+
 # Install Apache and PHP packages (do NOT run apt upgrade - keep outdated packages)
 - name: "Install Apache and PHP"
   ansible.builtin.apt:
@@ -11,7 +32,6 @@
       - libapache2-mod-php
       - php-mysql
     state: present
-    update_cache: true
   become: true
 
 # VULN: Disable firewall entirely - no iptables/ufw protection

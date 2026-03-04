@@ -129,6 +129,33 @@ else
     warn "Server header not detected"
 fi
 
+# --- Web Login Tests ---
+# DB employee login: index.php accepts any non-empty password when an email
+# row exists in ccdc_company.employees (SQL injection bypasses too).
+# The session redirect to home.php confirms authentication succeeded.
+COOKIES_DB=$(mktemp /tmp/ccdc_cookies_db_XXXX.txt)
+LOGIN_RESP=$(curl -s -c "$COOKIES_DB" \
+    -d "email=jsmith%40ludus.domain&password=anypass" \
+    -L --connect-timeout 5 "http://${WEB}/index.php" 2>/dev/null)
+rm -f "$COOKIES_DB"
+if echo "$LOGIN_RESP" | grep -qi "Intranet\|Dashboard\|Employee Portal\|Ludus Corporation"; then
+    pass "Web login with DB employee (jsmith@ludus.domain) redirected to home"
+else
+    fail "Web login with DB employee failed (DB unreachable or employees table empty)"
+fi
+
+# Backdoor login: hardcoded admin/admin in index.php — works without DB
+COOKIES_ADMIN=$(mktemp /tmp/ccdc_cookies_admin_XXXX.txt)
+LOGIN_RESP_ADMIN=$(curl -s -c "$COOKIES_ADMIN" \
+    -d "email=admin&password=admin" \
+    -L --connect-timeout 5 "http://${WEB}/index.php" 2>/dev/null)
+rm -f "$COOKIES_ADMIN"
+if echo "$LOGIN_RESP_ADMIN" | grep -qi "Administrator\|Intranet\|Dashboard"; then
+    pass "Web login with backdoor admin/admin (VULN: hardcoded credential)"
+else
+    fail "Web login with backdoor admin/admin failed"
+fi
+
 # =============================================================================
 header "3. DATABASE SERVER (${DB}) - MariaDB/MySQL"
 # =============================================================================
@@ -240,6 +267,14 @@ else
     fail "Port 110/tcp closed (POP3)"
 fi
 
+# POP3 authenticated login
+POP3_AUTH=$(printf "USER mail\r\nPASS mail\r\nQUIT\r\n" | nc -w 5 "$MAIL" 110 2>/dev/null)
+if echo "$POP3_AUTH" | grep -q "+OK"; then
+    pass "POP3 LOGIN mail:mail accepted (VULN: plaintext auth without TLS)"
+else
+    warn "POP3 auth inconclusive — check manually: nc ${MAIL} 110, then: USER mail / PASS mail"
+fi
+
 # SMTP banner
 SMTP_BANNER=$(echo "QUIT" | nc -w 5 "$MAIL" 25 2>/dev/null | head -1)
 if echo "$SMTP_BANNER" | grep -qi "ESMTP"; then
@@ -262,6 +297,14 @@ if echo "$IMAP_BANNER" | grep -qi "Dovecot\|IMAP"; then
     pass "IMAP banner: ${IMAP_BANNER:0:70}"
 else
     warn "No IMAP banner received"
+fi
+
+# IMAP authenticated login (Dovecot allows plaintext without TLS — disable_plaintext_auth=no)
+IMAP_AUTH=$(printf "a1 LOGIN mail mail\r\na2 LOGOUT\r\n" | nc -w 5 "$MAIL" 143 2>/dev/null)
+if echo "$IMAP_AUTH" | grep -q "a1 OK"; then
+    pass "IMAP LOGIN mail:mail accepted (VULN: plaintext auth without TLS)"
+else
+    warn "IMAP auth inconclusive — check manually: nc ${MAIL} 143, then: a1 LOGIN mail mail"
 fi
 
 # =============================================================================

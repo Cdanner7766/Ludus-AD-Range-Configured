@@ -34,8 +34,6 @@ ludus:
     windows:
       sysprep: true
       install_additional_tools: false
-      office_version: 2019
-      office_arch: 64bit
     domain:
       fqdn: ludus.domain
       role: member

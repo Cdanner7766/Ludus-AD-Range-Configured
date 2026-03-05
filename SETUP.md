@@ -32,6 +32,7 @@ ludus ansible role add -d roles/ludus_ccdc_file_server
 ludus ansible role add -d roles/ludus_ccdc_mail_server
 ludus ansible role add -d roles/ludus_ccdc_dns_server
 ludus ansible role add -d roles/ludus_ccdc_ftp_server
+ludus ansible role add -d roles/ludus_ccdc_workstation
 ```
 
 Verify roles are installed:
@@ -71,6 +72,7 @@ ludus range deploy -t user-defined-roles --limit <VM_NAME> --only-roles <ROLE_NA
 | `ludus_ccdc_mail_server` | MAIL01 | Debian 12 | Postfix + Dovecot | 25, 110, 143 |
 | `ludus_ccdc_dns_server` | DNS01 | Windows Server 2022 | Windows DNS | 53 |
 | `ludus_ccdc_ftp_server` | FTP01 | Ubuntu 22.04 | vsftpd | 21 |
+| `ludus_ccdc_workstation` | PC01-W11 | Windows 11 | Blue team tools via Chocolatey (Wireshark, Burp Suite, Process Hacker, etc.) | — |
 
 ## Updating a Role
 

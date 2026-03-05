@@ -138,7 +138,7 @@ LOGIN_RESP=$(curl -s -c "$COOKIES_DB" \
     -d "email=jsmith%40ludus.domain&password=anypass" \
     -L --connect-timeout 5 "http://${WEB}/index.php" 2>/dev/null)
 rm -f "$COOKIES_DB"
-if echo "$LOGIN_RESP" | grep -qi "Intranet\|Dashboard\|Employee Portal\|Ludus Corporation"; then
+if echo "$LOGIN_RESP" | grep -qi "Welcome back\|Intranet"; then
     pass "Web login with DB employee (jsmith@ludus.domain) redirected to home"
 else
     fail "Web login with DB employee failed (DB unreachable or employees table empty)"
@@ -150,7 +150,7 @@ LOGIN_RESP_ADMIN=$(curl -s -c "$COOKIES_ADMIN" \
     -d "email=admin&password=admin" \
     -L --connect-timeout 5 "http://${WEB}/index.php" 2>/dev/null)
 rm -f "$COOKIES_ADMIN"
-if echo "$LOGIN_RESP_ADMIN" | grep -qi "Administrator\|Intranet\|Dashboard"; then
+if echo "$LOGIN_RESP_ADMIN" | grep -qi "Welcome back\|Intranet"; then
     pass "Web login with backdoor admin/admin (VULN: hardcoded credential)"
 else
     fail "Web login with backdoor admin/admin failed"
@@ -169,20 +169,20 @@ fi
 
 # MySQL login with weak credentials
 if command -v mysql &>/dev/null; then
-    if mysql -h "$DB" -u root -ppassword -e "SELECT 1;" &>/dev/null; then
+    if mysql -h "$DB" --protocol=TCP -u root -ppassword -e "SELECT 1;" &>/dev/null; then
         pass "MySQL root login with weak password (VULN: root/password)"
     else
         fail "MySQL root login failed"
     fi
 
-    if mysql -h "$DB" -u admin -padmin -e "SELECT 1;" &>/dev/null; then
+    if mysql -h "$DB" --protocol=TCP -u admin -padmin -e "SELECT 1;" &>/dev/null; then
         pass "MySQL admin login with weak password (VULN: admin/admin)"
     else
         fail "MySQL admin login failed"
     fi
 
     # Check sample database
-    if mysql -h "$DB" -u root -ppassword -e "USE ccdc_company; SELECT * FROM employees;" &>/dev/null; then
+    if mysql -h "$DB" --protocol=TCP -u root -ppassword -e "USE ccdc_company; SELECT * FROM employees;" &>/dev/null; then
         pass "ccdc_company database with employee data accessible"
     else
         fail "ccdc_company database not accessible"
@@ -275,17 +275,17 @@ else
     warn "POP3 auth inconclusive — check manually: nc ${MAIL} 110, then: USER mail / PASS mail"
 fi
 
-# SMTP banner
-SMTP_BANNER=$(echo "QUIT" | nc -w 5 "$MAIL" 25 2>/dev/null | head -1)
+# SMTP banner — sleep 1 lets Postfix send its 220 greeting before we send QUIT
+SMTP_BANNER=$((sleep 1; echo "QUIT") | nc -w 5 "$MAIL" 25 2>/dev/null | head -1)
 if echo "$SMTP_BANNER" | grep -qi "ESMTP"; then
     pass "SMTP banner: ${SMTP_BANNER:0:70}"
 else
     fail "No SMTP banner received"
 fi
 
-# Test open relay: SMTP accepts RCPT TO for external domain
-RELAY_TEST=$(printf "HELO test\r\nMAIL FROM:<test@attacker.com>\r\nRCPT TO:<anyone@external.com>\r\nQUIT\r\n" | nc -w 5 "$MAIL" 25 2>/dev/null)
-if echo "$RELAY_TEST" | grep -q "250.*Ok\|250.*Recipient"; then
+# Test open relay: sleep 1 so Postfix sends 220 before we start the conversation
+RELAY_TEST=$((sleep 1; printf "HELO test\r\nMAIL FROM:<test@attacker.com>\r\nRCPT TO:<anyone@external.com>\r\nQUIT\r\n") | nc -w 10 "$MAIL" 25 2>/dev/null)
+if echo "$RELAY_TEST" | grep -q "250.*Ok\|250.*Recipient\|250 2\.1\.5"; then
     pass "SMTP open relay confirmed (VULN: accepts mail for external domains)"
 else
     warn "Open relay test inconclusive"
@@ -376,7 +376,7 @@ fi
 
 # Anonymous login
 if command -v ftp &>/dev/null || command -v lftp &>/dev/null; then
-    ANON_TEST=$(curl -s --connect-timeout 5 "ftp://${FTP}/pub/readme.txt" 2>/dev/null)
+    ANON_TEST=$(curl -s --ftp-pasv --connect-timeout 5 "ftp://${FTP}/pub/readme.txt" 2>/dev/null)
     if echo "$ANON_TEST" | grep -qi "CCDC\|Public"; then
         pass "Anonymous FTP access works (VULN: anon read enabled)"
     else
@@ -384,7 +384,7 @@ if command -v ftp &>/dev/null || command -v lftp &>/dev/null; then
     fi
 
     # Check for credentials file
-    CREDS_TEST=$(curl -s --connect-timeout 5 "ftp://${FTP}/pub/backup_notes.txt" 2>/dev/null)
+    CREDS_TEST=$(curl -s --ftp-pasv --connect-timeout 5 "ftp://${FTP}/pub/backup_notes.txt" 2>/dev/null)
     if echo "$CREDS_TEST" | grep -qi "credentials\|password"; then
         pass "Credentials file accessible via anonymous FTP (VULN: sensitive data exposed)"
     else

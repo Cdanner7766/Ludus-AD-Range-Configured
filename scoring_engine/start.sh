@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# start.sh — launch the CCDC Blue Team Scoring Engine on Kali
+# start.sh — launch the CCDC Blue Team Scoring Engine on SCORE01 (10.X.99.10)
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

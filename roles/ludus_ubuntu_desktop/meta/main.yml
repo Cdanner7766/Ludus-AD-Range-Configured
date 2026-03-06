@@ -1,0 +1,15 @@
+---
+galaxy_info:
+  author: CCDC Range
+  description: Lightweight XFCE4 desktop environment for Ubuntu server templates
+  license: MIT
+  min_ansible_version: "2.10"
+  platforms:
+    - name: Ubuntu
+      versions:
+        - all
+  galaxy_tags:
+    - desktop
+    - xfce
+    - gui
+dependencies: []

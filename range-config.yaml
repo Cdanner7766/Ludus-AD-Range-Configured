@@ -216,12 +216,12 @@ ludus:
       - ludus_ccdc_ftp_server
 
   # ============================================================
-  # KALI LINUX - Attacker machine (Red Team)
+  # KALI LINUX 1 - Primary attacker machine (Red Team)
   # Used for penetration testing and CCDC red team simulation
   # On VLAN 99 (separate attacker network)
   # ============================================================
-  - vm_name: "{{ range_id }}-kali"
-    hostname: "{{ range_id }}-kali"
+  - vm_name: "{{ range_id }}-kali-1"
+    hostname: "{{ range_id }}-kali-1"
     template: kali-x64-desktop-template
     vlan: 99
     ip_last_octet: 1
@@ -231,6 +231,55 @@ ludus:
     testing:
       snapshot: false
       block_internet: false
+
+  # ============================================================
+  # KALI LINUX 2 - Secondary attacker machine (Red Team)
+  # ============================================================
+  - vm_name: "{{ range_id }}-kali-2"
+    hostname: "{{ range_id }}-kali-2"
+    template: kali-x64-desktop-template
+    vlan: 99
+    ip_last_octet: 2
+    ram_gb: 8
+    cpus: 4
+    linux: true
+    testing:
+      snapshot: false
+      block_internet: false
+
+  # ============================================================
+  # KALI LINUX 3 - Tertiary attacker machine (Red Team)
+  # ============================================================
+  - vm_name: "{{ range_id }}-kali-3"
+    hostname: "{{ range_id }}-kali-3"
+    template: kali-x64-desktop-template
+    vlan: 99
+    ip_last_octet: 3
+    ram_gb: 8
+    cpus: 4
+    linux: true
+    testing:
+      snapshot: false
+      block_internet: false
+
+  # ============================================================
+  # SCORING ENGINE (Ubuntu 22.04) - Red Team subnet
+  # Hosts the CCDC Blue Team Scoring Engine
+  # XFCE desktop installed for GUI access
+  # ============================================================
+  - vm_name: "{{ range_id }}-ubuntu-score01"
+    hostname: "{{ range_id }}-SCORE01"
+    template: ubuntu-22.04-x64-server-template
+    vlan: 99
+    ip_last_octet: 10
+    ram_gb: 4
+    cpus: 2
+    linux: true
+    testing:
+      snapshot: false
+      block_internet: false
+    roles:
+      - ludus_ubuntu_desktop
 
 network:
   inter_vlan_default: REJECT

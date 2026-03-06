@@ -76,7 +76,8 @@ CHECK_INTERVAL = 60
 #   host         - target IP
 #   port         - TCP port
 #   points       - points awarded per round when service is UP
-#   check_type   - one of: http, ftp, smtp, banner, dns, mysql, tcp
+#   check_type   - one of: http, ftp, smtp, imap_login, banner, dns, mysql,
+#                           ldap, smb, ssh, tcp
 # ------------------------------------------------------------------
 def _build_services():
     n = BASE_NET
@@ -115,8 +116,9 @@ def _build_services():
             "host": f"{n}.61",
             "port": 143,
             "points": 50,
-            "check_type": "banner",
-            "banner_expect": "* OK",
+            "check_type": "imap_login",
+            "imap_user": "user",
+            "imap_pass": "password",
         },
         {
             "id": "pop3",
@@ -155,7 +157,7 @@ def _build_services():
             "host": f"{n}.51",
             "port": 445,
             "points": 50,
-            "check_type": "tcp",
+            "check_type": "smb",
         },
         {
             "id": "ldap",
@@ -164,7 +166,7 @@ def _build_services():
             "host": f"{n}.11",
             "port": 389,
             "points": 100,
-            "check_type": "tcp",
+            "check_type": "ldap",
         },
         {
             "id": "kerberos",
@@ -174,6 +176,57 @@ def _build_services():
             "port": 88,
             "points": 100,
             "check_type": "tcp",
+        },
+        # ------------------------------------------------------------------
+        # Workstation RDP — users must be able to reach their desktop
+        # ------------------------------------------------------------------
+        {
+            "id": "rdp_pc01",
+            "name": "RDP (Workstation PC01)",
+            "machine": "PC01-W11",
+            "host": f"{n}.21",
+            "port": 3389,
+            "points": 50,
+            "check_type": "tcp",
+        },
+        # ------------------------------------------------------------------
+        # SSH — admin access to every Linux server
+        # ------------------------------------------------------------------
+        {
+            "id": "ssh_web",
+            "name": "SSH (Web Server)",
+            "machine": "WEB01",
+            "host": f"{n}.31",
+            "port": 22,
+            "points": 25,
+            "check_type": "ssh",
+        },
+        {
+            "id": "ssh_db",
+            "name": "SSH (Database Server)",
+            "machine": "DB01",
+            "host": f"{n}.41",
+            "port": 22,
+            "points": 25,
+            "check_type": "ssh",
+        },
+        {
+            "id": "ssh_mail",
+            "name": "SSH (Mail Server)",
+            "machine": "MAIL01",
+            "host": f"{n}.61",
+            "port": 22,
+            "points": 25,
+            "check_type": "ssh",
+        },
+        {
+            "id": "ssh_ftp",
+            "name": "SSH (FTP Server)",
+            "machine": "FTP01",
+            "host": f"{n}.81",
+            "port": 22,
+            "points": 25,
+            "check_type": "ssh",
         },
     ]
 

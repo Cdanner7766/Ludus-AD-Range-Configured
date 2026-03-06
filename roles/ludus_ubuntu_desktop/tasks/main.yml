@@ -1,0 +1,31 @@
+---
+# tasks file for ludus_ubuntu_desktop
+# Installs a lightweight XFCE4 desktop environment and LightDM display manager
+# on an Ubuntu server template, making it usable as a GUI workstation.
+
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Install XFCE4 desktop environment and LightDM
+  ansible.builtin.apt:
+    name:
+      - xfce4
+      - xfce4-goodies
+      - lightdm
+      - lightdm-gtk-greeter
+    state: present
+
+- name: Set LightDM as default display manager
+  ansible.builtin.debconf:
+    name: lightdm
+    question: shared/default-x-display-manager
+    value: lightdm
+    vtype: select
+
+- name: Enable LightDM service
+  ansible.builtin.systemd:
+    name: lightdm
+    enabled: true
+    state: started

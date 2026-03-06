@@ -33,6 +33,7 @@ ludus ansible role add -d roles/ludus_ccdc_mail_server
 ludus ansible role add -d roles/ludus_ccdc_dns_server
 ludus ansible role add -d roles/ludus_ccdc_ftp_server
 ludus ansible role add -d roles/ludus_ccdc_workstation
+ludus ansible role add -d roles/ludus_ubuntu_desktop
 ```
 
 Verify roles are installed:
@@ -73,6 +74,7 @@ ludus range deploy -t user-defined-roles --limit <VM_NAME> --only-roles <ROLE_NA
 | `ludus_ccdc_dns_server` | DNS01 | Windows Server 2022 | Windows DNS | 53 |
 | `ludus_ccdc_ftp_server` | FTP01 | Ubuntu 22.04 | vsftpd | 21 |
 | `ludus_ccdc_workstation` | PC01-W11 | Windows 11 | Blue team tools via Chocolatey (Wireshark, Burp Suite, Process Hacker, etc.) | — |
+| `ludus_ubuntu_desktop` | SCORE01 | Ubuntu 22.04 | XFCE4 desktop environment + LightDM | — |
 
 ## Updating a Role
 
@@ -100,10 +102,10 @@ After deployment completes, SSH into the Kali VM and run the validation script:
 
 ```bash
 # Copy the script to Kali (from the Ludus host)
-scp scripts/test_range.sh kali:~/
+scp scripts/test_range.sh kali-1:~/
 
 # SSH into Kali and run it
-ssh kali
+ssh kali-1
 chmod +x ~/test_range.sh
 ./test_range.sh
 ```

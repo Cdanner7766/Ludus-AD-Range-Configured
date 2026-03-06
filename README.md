@@ -2,7 +2,7 @@
 
 ## Overview
 
-This Ludus range deploys a full Active Directory environment with 9 virtual machines across 2 VLANs, designed for CCDC (Collegiate Cyber Defense Competition) practice. The environment contains intentional vulnerabilities across all service VMs that blue teams must identify and remediate while maintaining service availability.
+This Ludus range deploys a full Active Directory environment with 12 virtual machines across 2 VLANs, designed for CCDC (Collegiate Cyber Defense Competition) practice. The environment contains intentional vulnerabilities across all service VMs that blue teams must identify and remediate while maintaining service availability.
 
 **Domain:** `ludus.domain`
 **Network:** `10.{RANGE_ID}.0.0/16` (VLAN determines third octet)
@@ -23,7 +23,10 @@ VLAN 10 - Corporate Network (10.X.10.0/24)
 └── FTP01        (.81)  - FTP Server (Ubuntu 22.04)
 
 VLAN 99 - Attacker Network (10.X.99.0/24)
-└── kali         (.1)   - Kali Linux (Red Team)
+├── kali-1       (.1)   - Kali Linux (Red Team)
+├── kali-2       (.2)   - Kali Linux (Red Team)
+├── kali-3       (.3)   - Kali Linux (Red Team)
+└── SCORE01      (.10)  - Scoring Engine (Ubuntu 22.04 + XFCE)
 ```
 
 ### Firewall Rules
@@ -355,11 +358,11 @@ VLAN 99 - Attacker Network (10.X.99.0/24)
 
 ---
 
-### 9. Kali Linux (Red Team)
+### 9. Kali Linux 1 (Red Team)
 
 | Property | Value |
 |----------|-------|
-| Hostname | `{RANGE_ID}-kali` |
+| Hostname | `{RANGE_ID}-kali-1` |
 | OS | Kali Linux |
 | IP | `10.X.99.1` |
 | RAM / CPUs | 8 GB / 4 |
@@ -370,6 +373,61 @@ VLAN 99 - Attacker Network (10.X.99.0/24)
 | Account | Username | Password |
 |---------|----------|----------|
 | Default user | `kali` | `kali` |
+
+---
+
+### 10. Kali Linux 2 (Red Team)
+
+| Property | Value |
+|----------|-------|
+| Hostname | `{RANGE_ID}-kali-2` |
+| OS | Kali Linux |
+| IP | `10.X.99.2` |
+| RAM / CPUs | 8 GB / 4 |
+| VLAN | 99 (Attacker Network) |
+
+**Credentials:**
+
+| Account | Username | Password |
+|---------|----------|----------|
+| Default user | `kali` | `kali` |
+
+---
+
+### 11. Kali Linux 3 (Red Team)
+
+| Property | Value |
+|----------|-------|
+| Hostname | `{RANGE_ID}-kali-3` |
+| OS | Kali Linux |
+| IP | `10.X.99.3` |
+| RAM / CPUs | 8 GB / 4 |
+| VLAN | 99 (Attacker Network) |
+
+**Credentials:**
+
+| Account | Username | Password |
+|---------|----------|----------|
+| Default user | `kali` | `kali` |
+
+---
+
+### 12. Scoring Engine (SCORE01)
+
+| Property | Value |
+|----------|-------|
+| Hostname | `{RANGE_ID}-SCORE01` |
+| OS | Ubuntu 22.04 Server + XFCE4 desktop |
+| IP | `10.X.99.10` |
+| RAM / CPUs | 4 GB / 2 |
+| VLAN | 99 (Attacker Network) |
+| Purpose | Hosts the CCDC Blue Team Scoring Engine |
+
+**Credentials:**
+
+| Account | Username | Password |
+|---------|----------|----------|
+| Ludus default | `debian` | `debian` |
 
 ---
 

@@ -50,17 +50,24 @@ def check_tcp(host, port):
 
 def check_http(host, port):
     """
-    HTTP deep check: verify the web server returns HTTP 200.
-    Also checks that Apache is serving a non-empty body.
+    HTTP deep check: verify the web server returns HTTP 200 and that
+    the response body contains the company portal content
+    ('Ludus Corporation' or 'Employee Portal').  A generic 200 from a
+    default/placeholder page is not enough.
     """
     url = f"http://{host}:{port}/"
     try:
         req = urllib.request.Request(url, headers={"User-Agent": "CCDC-Scoring/1.0"})
         with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:
-            body = resp.read(512)
-            if resp.status == 200 and len(body) > 0:
-                return True, f"HTTP 200 OK ({len(body)}+ bytes)"
-            return False, f"HTTP {resp.status} — unexpected response"
+            body = resp.read(1024)
+            if resp.status != 200:
+                return False, f"HTTP {resp.status} — unexpected response"
+            if not body:
+                return False, "HTTP 200 but empty body"
+            content = body.decode("utf-8", errors="replace").lower()
+            if "ludus corporation" not in content and "employee portal" not in content:
+                return False, f"HTTP 200 but company portal content missing ({len(body)} bytes)"
+            return True, f"HTTP 200 OK — portal loaded ({len(body)}+ bytes)"
     except urllib.error.HTTPError as e:
         return False, f"HTTP {e.code}: {e.reason}"
     except urllib.error.URLError as e:
@@ -106,20 +113,41 @@ def check_ftp(host, port):
 
 def check_smtp(host, port):
     """
-    SMTP deep check: connect, verify 220 banner, and send EHLO.
-    Service is UP if EHLO gets a valid response.
+    SMTP deep check: connect, verify 220 banner, validate EHLO response,
+    then send MAIL FROM + RCPT TO + RSET to confirm the MTA relays mail.
+    Uses try/finally instead of a context manager to avoid __exit__
+    calling quit() on an unconnected socket when connect() fails.
     """
+    smtp = smtplib.SMTP(timeout=TIMEOUT)
     try:
-        with smtplib.SMTP(timeout=TIMEOUT) as smtp:
-            code, banner = smtp.connect(host, port)
-            if code != 220:
-                return False, f"Expected 220, got {code}"
-            smtp.ehlo("scoring.ccdc.test")
-            return True, f"EHLO accepted | {banner.decode(errors='replace')[:60]}"
+        code, banner = smtp.connect(host, port)
+        if code != 220:
+            return False, f"Expected 220 banner, got {code}"
+
+        code, _ = smtp.ehlo("scoring.ccdc.test")
+        if code != 250:
+            return False, f"EHLO failed: {code}"
+
+        # Relay test: verify the MTA accepts a mail transaction
+        code, _ = smtp.mail("scoring@scoring.ccdc.test")
+        if code != 250:
+            return False, f"MAIL FROM rejected: {code}"
+
+        code, _ = smtp.rcpt("check@ludus.domain")
+        smtp.rset()   # cancel the transaction before disconnecting
+        if code not in (250, 251):
+            return False, f"RCPT TO rejected: {code}"
+
+        return True, f"SMTP relay OK | {banner.decode(errors='replace')[:55]}"
     except smtplib.SMTPException as e:
         return False, f"SMTP error: {e}"
     except Exception as e:
         return False, str(e)
+    finally:
+        try:
+            smtp.quit()
+        except Exception:
+            pass
 
 
 def check_banner(host, port, expected=None):
@@ -249,6 +277,140 @@ def _dns_raw_udp(host, query, expected_ip):
         return False, f"DNS raw query error: {e}"
 
 
+def check_ldap(host, port):
+    """
+    LDAP deep check: send an LDAPv3 anonymous bind request and verify
+    the server returns a valid BindResponse (APPLICATION tag 0x61).
+    Service is scored UP if LDAP responds at all — even if the server
+    denies anonymous access the protocol is confirmed running.
+    """
+    # Minimal LDAPv3 anonymous bind request (14 bytes)
+    bind_request = bytes([
+        0x30, 0x0c,        # SEQUENCE (12 bytes total payload)
+        0x02, 0x01, 0x01,  # INTEGER messageID = 1
+        0x60, 0x07,        # APPLICATION[0] BindRequest (7 bytes)
+        0x02, 0x01, 0x03,  # INTEGER version = 3
+        0x04, 0x00,        # OCTET STRING dn = "" (anonymous)
+        0x80, 0x00,        # [0] IMPLICIT simple password = ""
+    ])
+    try:
+        with _tcp_connect(host, port) as s:
+            s.sendall(bind_request)
+            data = s.recv(256)
+        if len(data) < 7:
+            return False, "LDAP: response too short"
+        # BindResponse is tagged APPLICATION[1] = 0x61
+        if 0x61 not in data:
+            return False, "LDAP: no BindResponse tag in reply"
+        idx = data.index(0x61)
+        inner = data[idx + 2:]   # skip tag + length byte
+        if len(inner) >= 3 and inner[0] == 0x0a and inner[1] == 0x01:
+            result_code = inner[2]
+            if result_code == 0:
+                return True, "LDAP anonymous bind OK"
+            # Non-zero resultCode still means LDAP is running
+            return True, f"LDAP running (anonymous bind resultCode={result_code})"
+        return True, "LDAP BindResponse received"
+    except socket.timeout:
+        return False, "LDAP: connection timed out"
+    except ConnectionRefusedError:
+        return False, "LDAP: connection refused"
+    except Exception as e:
+        return False, f"LDAP error: {e}"
+
+
+def check_smb(host, port):
+    """
+    SMB deep check: send an SMBv1 NEGOTIATE request and verify the server
+    replies with a valid SMB packet.  The response signature reveals
+    whether the server answered with SMBv1 (\\xffSMB) or SMBv2+ (\\xfeSMB).
+    """
+    # SMBv1 NEGOTIATE over NetBIOS-over-TCP (port 445)
+    # NetBIOS session header: type=0x00 (SESSION_MESSAGE), 3-byte length = 47
+    negotiate = (
+        b"\x00\x00\x00\x2f"                      # NetBIOS session header (47 bytes)
+        b"\xff\x53\x4d\x42"                       # SMB1 signature
+        b"\x72"                                   # SMB_COM_NEGOTIATE
+        b"\x00\x00\x00\x00"                       # NT status = 0
+        b"\x18"                                   # Flags
+        b"\x53\xc8"                               # Flags2
+        b"\x00\x00"                               # PID high
+        b"\x00\x00\x00\x00\x00\x00\x00\x00"      # Security signature
+        b"\x00\x00"                               # Reserved
+        b"\xff\xff"                               # TreeID
+        b"\x00\x00"                               # PID
+        b"\x00\x00"                               # UserID
+        b"\x00\x00"                               # MultiplexID
+        b"\x00"                                   # Word count = 0
+        b"\x0c\x00"                               # Byte count = 12
+        b"\x02NT LM 0.12\x00"                    # Dialect string
+    )
+    try:
+        with _tcp_connect(host, port) as s:
+            s.sendall(negotiate)
+            data = s.recv(512)
+        if len(data) < 8:
+            return False, "SMB: response too short"
+        # SMB signature starts at byte 4 (after the 4-byte NetBIOS header)
+        sig = data[4:8]
+        if sig == b"\xff\x53\x4d\x42":
+            return True, "SMB negotiate OK (SMBv1 response)"
+        if sig == b"\xfe\x53\x4d\x42":
+            return True, "SMB negotiate OK (SMBv2+ response)"
+        return False, f"SMB: unexpected signature: {sig.hex()}"
+    except socket.timeout:
+        return False, "SMB: connection timed out"
+    except ConnectionRefusedError:
+        return False, "SMB: connection refused"
+    except Exception as e:
+        return False, f"SMB error: {e}"
+
+
+def check_imap_login(host, port, user, password):
+    """
+    IMAP login check: read server greeting, send tagged LOGIN command,
+    and verify a tagged OK response.  Confirms that a real user can
+    authenticate — not just that the port is open.
+    """
+    try:
+        with _tcp_connect(host, port) as s:
+            greeting = s.recv(512).decode("utf-8", errors="replace").strip()
+            if "* OK" not in greeting:
+                return False, f"IMAP: unexpected greeting: {greeting[:60]}"
+            # Send LOGIN command
+            s.sendall(f"A001 LOGIN {user} {password}\r\n".encode())
+            resp = s.recv(512).decode("utf-8", errors="replace").strip()
+            if "A001 OK" in resp:
+                s.sendall(b"A002 LOGOUT\r\n")
+                return True, f"IMAP LOGIN OK as '{user}'"
+            return False, f"IMAP LOGIN failed: {resp[:60]}"
+    except socket.timeout:
+        return False, "IMAP: connection timed out"
+    except ConnectionRefusedError:
+        return False, "IMAP: connection refused"
+    except Exception as e:
+        return False, f"IMAP error: {e}"
+
+
+def check_ssh(host, port):
+    """
+    SSH check: connect and read the server identification string.
+    A live SSH daemon always sends a banner starting with 'SSH-'.
+    """
+    try:
+        with _tcp_connect(host, port) as s:
+            banner = s.recv(256).decode("utf-8", errors="replace").strip()
+            if banner.startswith("SSH-"):
+                return True, f"SSH: {banner[:60]}"
+            return False, f"SSH: unexpected banner: {banner[:40]}"
+    except socket.timeout:
+        return False, "SSH: connection timed out"
+    except ConnectionRefusedError:
+        return False, "SSH: connection refused"
+    except Exception as e:
+        return False, str(e)
+
+
 # ---------------------------------------------------------------------------
 # Dispatcher
 # ---------------------------------------------------------------------------
@@ -280,5 +442,17 @@ def run_check(service):
             service.get("dns_query", "ludus.domain"),
             service.get("dns_expected_ip"),
         )
+    elif ctype == "ldap":
+        return check_ldap(host, port)
+    elif ctype == "smb":
+        return check_smb(host, port)
+    elif ctype == "imap_login":
+        return check_imap_login(
+            host, port,
+            service.get("imap_user", "user"),
+            service.get("imap_pass", "password"),
+        )
+    elif ctype == "ssh":
+        return check_ssh(host, port)
     else:
         return False, f"Unknown check type: {ctype}"

@@ -422,12 +422,41 @@ VLAN 99 - Attacker Network (10.X.99.0/24)
 | RAM / CPUs | 4 GB / 2 |
 | VLAN | 99 (Attacker Network) |
 | Purpose | Hosts the CCDC Blue Team Scoring Engine |
+| Dashboard | `http://10.X.99.10:8080/` |
 
 **Credentials:**
 
 | Account | Username | Password |
 |---------|----------|----------|
 | Ludus default | `debian` | `debian` |
+
+**Scoring Engine:**
+
+Deployed by the `ludus_ccdc_scoring_engine` Ansible role. Runs as a Python Flask application under the `scoring` system user, managed by systemd (`scoring_engine.service`). Results are stored in SQLite at `/opt/scoring_engine/scoring.db`.
+
+- Polls all 13 blue-team services every **60 seconds**
+- Scores each check pass/fail with point values ranging from 25–100 pts
+- Auto-detects the range ID from the scoring machine's `10.X.99.Y` IP
+- Live dashboard available at **`http://10.X.99.10:8080/`** from VLAN 10 machines (port 8080 is permitted through the firewall)
+
+| Service Check | Points |
+|---------------|-------:|
+| HTTP Company Portal (WEB01:80) | 100 |
+| LDAP — Active Directory (DC01:389) | 100 |
+| Kerberos — Active Directory (DC01:88) | 100 |
+| DNS Resolution (DNS01:53) | 100 |
+| SMTP Open Relay (MAIL01:25) | 75 |
+| MySQL Database (DB01:3306) | 75 |
+| IMAP Login (MAIL01:143) | 50 |
+| POP3 Banner (MAIL01:110) | 50 |
+| SMB File Server (FILESVR:445) | 50 |
+| FTP Anonymous (FTP01:21) | 50 |
+| RDP Workstation (PC01-W11:3389) | 50 |
+| SSH WEB01 (:22) | 25 |
+| SSH DB01 (:22) | 25 |
+| SSH MAIL01 (:22) | 25 |
+| SSH FTP01 (:22) | 25 |
+| **Max per round** | **900** |
 
 ---
 

@@ -1,0 +1,18 @@
+[Unit]
+Description=CCDC Blue Team Scoring Engine
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+User={{ scoring_engine_user }}
+WorkingDirectory={{ scoring_engine_dir }}
+ExecStart={{ scoring_engine_dir }}/venv/bin/python3 {{ scoring_engine_dir }}/app.py
+Restart=on-failure
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=scoring_engine
+
+[Install]
+WantedBy=multi-user.target

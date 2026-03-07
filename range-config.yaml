@@ -266,6 +266,7 @@ ludus:
   # SCORING ENGINE (Ubuntu 22.04) - Red Team subnet
   # Hosts the CCDC Blue Team Scoring Engine
   # XFCE desktop installed for GUI access
+  # Dashboard: http://<score01-ip>:8080
   # ============================================================
   - vm_name: "{{ range_id }}-ubuntu-score01"
     hostname: "{{ range_id }}-SCORE01"
@@ -280,6 +281,7 @@ ludus:
       block_internet: false
     roles:
       - ludus_ubuntu_desktop
+      - ludus_ccdc_scoring_engine
 
 network:
   inter_vlan_default: REJECT

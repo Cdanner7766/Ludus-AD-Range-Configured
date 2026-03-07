@@ -1,0 +1,109 @@
+---
+# tasks file for ludus_ccdc_scoring_engine
+# Deploys the CCDC Blue Team Scoring Engine to SCORE01 as a systemd service.
+# The Python source files are read directly from scoring_engine/ at the repo
+# root (role_path/../../scoring_engine/) so there is only one copy to maintain.
+
+- name: "Install system dependencies"
+  ansible.builtin.apt:
+    name:
+      - python3
+      - python3-pip
+      - python3-venv
+    state: present
+    update_cache: true
+  become: true
+
+- name: "Create scoring engine system user"
+  ansible.builtin.user:
+    name: "{{ scoring_engine_user }}"
+    system: true
+    shell: /usr/sbin/nologin
+    home: "{{ scoring_engine_dir }}"
+    create_home: false
+  become: true
+
+- name: "Create scoring engine directory"
+  ansible.builtin.file:
+    path: "{{ scoring_engine_dir }}"
+    state: directory
+    owner: "{{ scoring_engine_user }}"
+    group: "{{ scoring_engine_user }}"
+    mode: "0755"
+  become: true
+
+- name: "Create templates subdirectory"
+  ansible.builtin.file:
+    path: "{{ scoring_engine_dir }}/templates"
+    state: directory
+    owner: "{{ scoring_engine_user }}"
+    group: "{{ scoring_engine_user }}"
+    mode: "0755"
+  become: true
+
+# Source files live in scoring_engine/ at the repo root.
+# role_path = <repo>/roles/ludus_ccdc_scoring_engine, so ../../scoring_engine
+# resolves to the repo-root scoring_engine/ directory.
+- name: "Copy scoring engine Python source files"
+  ansible.builtin.copy:
+    src: "{{ role_path }}/../../scoring_engine/{{ item }}"
+    dest: "{{ scoring_engine_dir }}/{{ item }}"
+    owner: "{{ scoring_engine_user }}"
+    group: "{{ scoring_engine_user }}"
+    mode: "0644"
+  loop:
+    - app.py
+    - checks.py
+    - config.py
+    - database.py
+    - requirements.txt
+  become: true
+  notify: Restart scoring engine
+
+- name: "Copy HTML dashboard template"
+  ansible.builtin.copy:
+    src: "{{ role_path }}/../../scoring_engine/templates/index.html"
+    dest: "{{ scoring_engine_dir }}/templates/index.html"
+    owner: "{{ scoring_engine_user }}"
+    group: "{{ scoring_engine_user }}"
+    mode: "0644"
+  become: true
+  notify: Restart scoring engine
+
+- name: "Create Python virtual environment"
+  ansible.builtin.command:
+    cmd: python3 -m venv "{{ scoring_engine_dir }}/venv"
+    creates: "{{ scoring_engine_dir }}/venv/bin/activate"
+  become: true
+
+- name: "Install Python dependencies into virtual environment"
+  ansible.builtin.pip:
+    requirements: "{{ scoring_engine_dir }}/requirements.txt"
+    virtualenv: "{{ scoring_engine_dir }}/venv"
+  become: true
+
+- name: "Set ownership of virtual environment"
+  ansible.builtin.file:
+    path: "{{ scoring_engine_dir }}/venv"
+    owner: "{{ scoring_engine_user }}"
+    group: "{{ scoring_engine_user }}"
+    recurse: true
+  become: true
+
+- name: "Deploy systemd service unit"
+  ansible.builtin.template:
+    src: scoring_engine.service.j2
+    dest: /etc/systemd/system/scoring_engine.service
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  notify: Restart scoring engine
+
+- name: "Enable and start scoring engine service"
+  ansible.builtin.systemd:
+    name: scoring_engine
+    enabled: true
+    state: started
+    daemon_reload: true
+  become: true

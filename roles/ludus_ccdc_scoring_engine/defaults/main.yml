@@ -1,0 +1,11 @@
+---
+# defaults file for ludus_ccdc_scoring_engine
+
+# System user the service runs as
+scoring_engine_user: scoring
+
+# Directory where the engine files and venv are installed
+scoring_engine_dir: /opt/scoring_engine
+
+# Port the Flask dashboard listens on
+scoring_engine_port: 8080

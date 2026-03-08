@@ -128,6 +128,27 @@
   become: true
   ignore_errors: true
 
+# Create realistic employee mail accounts
+# jsmith is used by the scoring engine for IMAP checks (default credential).
+# bwilson and mchen are additional employees that make the mailserver
+# look realistic; blue team may change their passwords without affecting scoring.
+- name: "Create Ludus Corporation employee mail accounts"
+  ansible.builtin.shell: |
+    useradd -m -s /bin/bash jsmith  2>/dev/null || true
+    useradd -m -s /bin/bash bwilson 2>/dev/null || true
+    useradd -m -s /bin/bash mchen   2>/dev/null || true
+    echo 'jsmith:Ludus2025!'  | chpasswd
+    echo 'bwilson:Ludus2025!' | chpasswd
+    echo 'mchen:Ludus2025!'   | chpasswd
+    mkdir -p /home/jsmith/Maildir/{new,cur,tmp}
+    mkdir -p /home/bwilson/Maildir/{new,cur,tmp}
+    mkdir -p /home/mchen/Maildir/{new,cur,tmp}
+    chown -R jsmith:jsmith   /home/jsmith/Maildir
+    chown -R bwilson:bwilson /home/bwilson/Maildir
+    chown -R mchen:mchen     /home/mchen/Maildir
+  become: true
+  ignore_errors: true
+
 # VULN: Disable firewall
 - name: "VULN - Disable firewall"
   ansible.builtin.shell: |

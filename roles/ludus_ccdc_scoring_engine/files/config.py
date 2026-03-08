@@ -97,10 +97,10 @@ def _build_services():
             "port": 21,
             "check_type": "ftp",
             "has_credentials": True,
-            # Defaults to anonymous; update via the dashboard once blue team
-            # creates a real FTP account (anonymous login is disabled on hardening).
-            "default_user": "anonymous",
-            "default_pass": "scoring@ccdc.test",
+            # mlopez is a Ludus Corp logistics employee provisioned by the FTP
+            # server role.  Update via the dashboard if blue team changes the password.
+            "default_user": "mlopez",
+            "default_pass": "Ludus2025!",
         },
         {
             "id": "smtp",
@@ -118,8 +118,10 @@ def _build_services():
             "port": 143,
             "check_type": "imap_login",
             "has_credentials": True,
-            "default_user": "user",
-            "default_pass": "password",
+            # jsmith is a Ludus Corp IT support employee provisioned by the mail
+            # server role.  Update via the dashboard if blue team changes the password.
+            "default_user": "jsmith",
+            "default_pass": "Ludus2025!",
         },
         {
             "id": "pop3",

@@ -65,7 +65,7 @@ RANGE_ID = _detect_range_id()
 BASE_NET = f"10.{RANGE_ID}.10"
 
 # How often to run a full check round (seconds)
-CHECK_INTERVAL = 60
+CHECK_INTERVAL = 30
 
 # ------------------------------------------------------------------
 # Service definitions
@@ -75,7 +75,6 @@ CHECK_INTERVAL = 60
 #   machine      - VM name from range-config.yaml
 #   host         - target IP
 #   port         - TCP port
-#   points       - points awarded per round when service is UP
 #   check_type   - one of: http, ftp, smtp, imap_login, banner, dns, mysql,
 #                           ldap, smb, ssh, tcp
 # ------------------------------------------------------------------
@@ -88,7 +87,6 @@ def _build_services():
             "machine": "WEB01",
             "host": f"{n}.31",
             "port": 80,
-            "points": 100,
             "check_type": "http",
         },
         {
@@ -97,7 +95,6 @@ def _build_services():
             "machine": "FTP01",
             "host": f"{n}.81",
             "port": 21,
-            "points": 50,
             "check_type": "ftp",
         },
         {
@@ -106,7 +103,6 @@ def _build_services():
             "machine": "MAIL01",
             "host": f"{n}.61",
             "port": 25,
-            "points": 75,
             "check_type": "smtp",
         },
         {
@@ -115,7 +111,6 @@ def _build_services():
             "machine": "MAIL01",
             "host": f"{n}.61",
             "port": 143,
-            "points": 50,
             "check_type": "imap_login",
             "imap_user": "user",
             "imap_pass": "password",
@@ -126,7 +121,6 @@ def _build_services():
             "machine": "MAIL01",
             "host": f"{n}.61",
             "port": 110,
-            "points": 50,
             "check_type": "banner",
             "banner_expect": "+OK",
         },
@@ -136,7 +130,6 @@ def _build_services():
             "machine": "DNS01",
             "host": f"{n}.71",
             "port": 53,
-            "points": 100,
             "check_type": "dns",
             "dns_query": "web.ludus.domain",
             "dns_expected_ip": f"{n}.31",
@@ -147,7 +140,6 @@ def _build_services():
             "machine": "DB01",
             "host": f"{n}.41",
             "port": 3306,
-            "points": 75,
             "check_type": "mysql",
         },
         {
@@ -156,7 +148,6 @@ def _build_services():
             "machine": "FILESVR",
             "host": f"{n}.51",
             "port": 445,
-            "points": 50,
             "check_type": "smb",
         },
         {
@@ -165,7 +156,6 @@ def _build_services():
             "machine": "DC01",
             "host": f"{n}.11",
             "port": 389,
-            "points": 100,
             "check_type": "ldap",
         },
         {
@@ -174,7 +164,6 @@ def _build_services():
             "machine": "DC01",
             "host": f"{n}.11",
             "port": 88,
-            "points": 100,
             "check_type": "tcp",
         },
         # ------------------------------------------------------------------
@@ -186,7 +175,6 @@ def _build_services():
             "machine": "PC01-W11",
             "host": f"{n}.21",
             "port": 3389,
-            "points": 50,
             "check_type": "tcp",
         },
         # ------------------------------------------------------------------
@@ -198,7 +186,6 @@ def _build_services():
             "machine": "WEB01",
             "host": f"{n}.31",
             "port": 22,
-            "points": 25,
             "check_type": "ssh",
         },
         {
@@ -207,7 +194,6 @@ def _build_services():
             "machine": "DB01",
             "host": f"{n}.41",
             "port": 22,
-            "points": 25,
             "check_type": "ssh",
         },
         {
@@ -216,7 +202,6 @@ def _build_services():
             "machine": "MAIL01",
             "host": f"{n}.61",
             "port": 22,
-            "points": 25,
             "check_type": "ssh",
         },
         {
@@ -225,11 +210,9 @@ def _build_services():
             "machine": "FTP01",
             "host": f"{n}.81",
             "port": 22,
-            "points": 25,
             "check_type": "ssh",
         },
     ]
 
 
 SERVICES = _build_services()
-MAX_SCORE_PER_ROUND = sum(s["points"] for s in SERVICES)

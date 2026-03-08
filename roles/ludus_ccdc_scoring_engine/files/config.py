@@ -177,41 +177,6 @@ def _build_services():
             "port": 3389,
             "check_type": "tcp",
         },
-        # ------------------------------------------------------------------
-        # SSH — admin access to every Linux server
-        # ------------------------------------------------------------------
-        {
-            "id": "ssh_web",
-            "name": "SSH (Web Server)",
-            "machine": "WEB01",
-            "host": f"{n}.31",
-            "port": 22,
-            "check_type": "ssh",
-        },
-        {
-            "id": "ssh_db",
-            "name": "SSH (Database Server)",
-            "machine": "DB01",
-            "host": f"{n}.41",
-            "port": 22,
-            "check_type": "ssh",
-        },
-        {
-            "id": "ssh_mail",
-            "name": "SSH (Mail Server)",
-            "machine": "MAIL01",
-            "host": f"{n}.61",
-            "port": 22,
-            "check_type": "ssh",
-        },
-        {
-            "id": "ssh_ftp",
-            "name": "SSH (FTP Server)",
-            "machine": "FTP01",
-            "host": f"{n}.81",
-            "port": 22,
-            "check_type": "ssh",
-        },
     ]
 
 

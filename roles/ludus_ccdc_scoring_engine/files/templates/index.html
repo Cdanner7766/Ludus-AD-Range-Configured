@@ -214,10 +214,10 @@
         <tbody id="services-tbody">
           {% for svc in services %}
           <tr data-svc="{{ svc.id }}">
-            <td class="px-3 fw-semibold" style="font-size:.85rem; white-space:nowrap;">
+            <td class="px-3 fw-semibold" style="font-size:.85rem; white-space:nowrap; color:#e6edf3;">
               {{ svc.machine }}
             </td>
-            <td style="font-size:.85rem;">{{ svc.name }}</td>
+            <td style="font-size:.85rem; color:#c9d1d9;">{{ svc.name }}</td>
             <td><code>{{ svc.host }}:{{ svc.port }}</code></td>
             <td>
               {% if svc.up is none %}

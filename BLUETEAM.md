@@ -91,3 +91,17 @@
 | Local user | `ftpuser` | `ftpuser` |
 | Local user | `admin` | `admin` |
 | Root | `root` | `toor` |
+
+---
+
+## Scoring Engine (SCORE01)
+
+| Account | Username | Password |
+|---------|----------|----------|
+| Ludus default | `debian` | `debian` |
+
+**Dashboard:** `http://10.X.99.10:8080/`
+
+The scoring engine checks all 15 services every 60 seconds and awards up to **900 points per round**. The dashboard is reachable from any VLAN 10 machine (firewall permits port 8080 outbound to VLAN 99).
+
+**IMAP check credential** (used by scoring engine): `user` / `password` — do not change this account's password or the IMAP check will fail.

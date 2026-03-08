@@ -14,6 +14,12 @@
     update_cache: true
   become: true
 
+- name: "Install Firefox for dashboard display"
+  ansible.builtin.apt:
+    name: firefox
+    state: present
+  become: true
+
 - name: "Create scoring engine system user"
   ansible.builtin.user:
     name: "{{ scoring_engine_user }}"

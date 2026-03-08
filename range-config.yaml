@@ -5,6 +5,12 @@ ludus:
   # DOMAIN CONTROLLER - Primary DC for ludus.domain
   # Manages AD, DNS (domain-integrated), DHCP, Group Policy
   # Credentials: Administrator / password (Ludus default)
+  # Domain employee accounts (all use password: Ludus2025!):
+  #   jsmith  - John Smith,    IT Support  (IMAP scoring account on MAIL01)
+  #   bwilson - Barbara Wilson, HR
+  #   mchen   - Michelle Chen,  Finance
+  #   mlopez  - Maria Lopez,    Logistics  (FTP scoring account on FTP01)
+  #   rthomas - Robert Thomas,  Warehouse
   # ============================================================
   - vm_name: "{{ range_id }}-ad-dc-win2022-server-x64"
     hostname: "{{ range_id }}-DC01-2022"
@@ -18,6 +24,8 @@ ludus:
     domain:
       fqdn: ludus.domain
       role: primary-dc
+    roles:
+      - ludus_ccdc_domain_users
 
   # ============================================================
   # WINDOWS 11 WORKSTATION - Domain-joined end-user workstation

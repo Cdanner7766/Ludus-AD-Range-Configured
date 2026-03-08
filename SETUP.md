@@ -35,6 +35,7 @@ ludus ansible role add -d roles/ludus_ccdc_ftp_server
 ludus ansible role add -d roles/ludus_ccdc_workstation
 ludus ansible role add -d roles/ludus_ubuntu_desktop
 ludus ansible role add -d roles/ludus_ccdc_scoring_engine
+ludus ansible role add -d roles/ludus_ccdc_domain_users
 ```
 
 Verify roles are installed:
@@ -77,6 +78,7 @@ ludus range deploy -t user-defined-roles --limit <VM_NAME> --only-roles <ROLE_NA
 | `ludus_ccdc_workstation` | PC01-W11 | Windows 11 | Blue team tools via Chocolatey (Wireshark, Burp Suite, Process Hacker, etc.) | — |
 | `ludus_ubuntu_desktop` | SCORE01 | Ubuntu 22.04 | XFCE4 desktop environment + LightDM | — |
 | `ludus_ccdc_scoring_engine` | SCORE01 | Ubuntu 22.04 | Flask scoring engine + SQLite + systemd | 8080 |
+| `ludus_ccdc_domain_users` | DC01-2022 | Windows Server 2022 | Creates Ludus Corp employee AD accounts (jsmith, bwilson, mchen, mlopez, rthomas) | — |
 
 ## Updating a Role
 
@@ -127,10 +129,10 @@ sudo journalctl -u scoring_engine -f
 | DNS — Resolution | DNS01 (.71) | 53 | A record query for `web.ludus.domain` | 100 |
 | SMTP — Mail relay | MAIL01 (.61) | 25 | Full relay test (MAIL FROM + RCPT TO + RSET) | 75 |
 | MySQL — Database | DB01 (.41) | 3306 | MySQL handshake banner | 75 |
-| IMAP — Mail login | MAIL01 (.61) | 143 | IMAP LOGIN command | 50 |
+| IMAP — Mail login (`jsmith`) | MAIL01 (.61) | 143 | IMAP LOGIN command | 50 |
 | POP3 — Mail | MAIL01 (.61) | 110 | `+OK` banner | 50 |
 | SMB — File Server | FILESVR (.51) | 445 | SMBv1/v2 negotiate | 50 |
-| FTP — Anonymous access | FTP01 (.81) | 21 | FTP anonymous login | 50 |
+| FTP — Login (`mlopez`) | FTP01 (.81) | 21 | FTP authenticated login | 50 |
 | RDP — Workstation | PC01-W11 (.21) | 3389 | TCP connect | 50 |
 | SSH — WEB01 | WEB01 (.31) | 22 | SSH banner | 25 |
 | SSH — DB01 | DB01 (.41) | 22 | SSH banner | 25 |

@@ -59,6 +59,16 @@ VLAN 99 - Attacker Network (10.X.99.0/24)
 | Domain Admin | `LUDUS\domainadmin` | `password` |
 | Domain User | `LUDUS\domainuser` | `password` |
 
+**Ludus Corporation employee accounts** (created by `ludus_ccdc_domain_users` role):
+
+| Display Name | Username | Password | Department |
+|-------------|----------|----------|------------|
+| John Smith | `jsmith` | `Ludus2025!` | IT Support *(IMAP scoring account on MAIL01)* |
+| Barbara Wilson | `bwilson` | `Ludus2025!` | HR |
+| Michelle Chen | `mchen` | `Ludus2025!` | Finance |
+| Maria Lopez | `mlopez` | `Ludus2025!` | Logistics *(FTP scoring account on FTP01)* |
+| Robert Thomas | `rthomas` | `Ludus2025!` | Warehouse |
+
 **Services:** Active Directory, DNS (domain-integrated), DHCP, Group Policy, Kerberos, LDAP
 
 ---
@@ -241,13 +251,16 @@ VLAN 99 - Attacker Network (10.X.99.0/24)
 
 **Credentials:**
 
-| Account | Username | Password |
-|---------|----------|----------|
-| OS / mail user | `mail` | `mail` |
-| OS / mail user | `admin` | `admin` |
-| OS / mail user | `user` | `password` |
-| OS root | `root` | `toor` |
-| Ludus default | `debian` | `debian` |
+| Account | Username | Password | Notes |
+|---------|----------|----------|-------|
+| OS / mail user | `mail` | `mail` | VULN: weak account |
+| OS / mail user | `admin` | `admin` | VULN: weak account |
+| OS / mail user | `user` | `password` | VULN: weak account |
+| OS root | `root` | `toor` | VULN: weak root |
+| Ludus default | `debian` | `debian` | |
+| Employee (IT Support) | `jsmith` | `Ludus2025!` | **Scoring engine IMAP account** |
+| Employee (HR) | `bwilson` | `Ludus2025!` | |
+| Employee (Finance) | `mchen` | `Ludus2025!` | |
 
 **Vulnerabilities:**
 
@@ -321,13 +334,15 @@ VLAN 99 - Attacker Network (10.X.99.0/24)
 
 **Credentials:**
 
-| Account | Username | Password |
-|---------|----------|----------|
-| OS / FTP user | `ftpuser` | `ftpuser` |
-| OS / FTP user | `admin` | `admin` |
-| OS root | `root` | `toor` |
-| FTP anonymous | `anonymous` | (any password) |
-| Ludus default | `debian` | `debian` |
+| Account | Username | Password | Notes |
+|---------|----------|----------|-------|
+| OS / FTP user | `ftpuser` | `ftpuser` | VULN: weak account |
+| OS / FTP user | `admin` | `admin` | VULN: weak account |
+| OS root | `root` | `toor` | VULN: weak root |
+| FTP anonymous | `anonymous` | (any password) | VULN: anonymous upload |
+| Ludus default | `debian` | `debian` | |
+| Employee (Logistics) | `mlopez` | `Ludus2025!` | **Scoring engine FTP account** |
+| Employee (Warehouse) | `rthomas` | `Ludus2025!` | |
 
 **FTP Directory Structure:**
 
@@ -447,10 +462,10 @@ Deployed by the `ludus_ccdc_scoring_engine` Ansible role. Runs as a Python Flask
 | DNS Resolution (DNS01:53) | 100 |
 | SMTP Open Relay (MAIL01:25) | 75 |
 | MySQL Database (DB01:3306) | 75 |
-| IMAP Login (MAIL01:143) | 50 |
+| IMAP Login (MAIL01:143) — `jsmith` | 50 |
 | POP3 Banner (MAIL01:110) | 50 |
 | SMB File Server (FILESVR:445) | 50 |
-| FTP Anonymous (FTP01:21) | 50 |
+| FTP Login (FTP01:21) — `mlopez` | 50 |
 | RDP Workstation (PC01-W11:3389) | 50 |
 | SSH WEB01 (:22) | 25 |
 | SSH DB01 (:22) | 25 |
@@ -467,7 +482,8 @@ Deployed by the `ludus_ccdc_scoring_engine` Ansible role. Runs as a Python Flask
 - MySQL root remotely accessible with password `password`
 - Anonymous FTP with full write access
 - Guest SMB access enabled with no authentication
-- Domain accounts use default Ludus passwords (`password`)
+- Domain built-in accounts use default Ludus passwords (`password`)
+- Ludus Corp employee accounts (`jsmith`, `bwilson`, `mchen`, `mlopez`, `rthomas`) use `Ludus2025!`
 
 ### Network / Firewall
 - UFW/iptables disabled on all Linux VMs

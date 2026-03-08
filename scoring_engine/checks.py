@@ -133,7 +133,10 @@ def check_smtp(host, port):
         if code != 250:
             return False, f"MAIL FROM rejected: {code}"
 
-        code, _ = smtp.rcpt("check@ludus.domain")
+        # Use a real local account on MAIL01 so Postfix accepts local delivery.
+        # "check@ludus.domain" would be rejected (550 User unknown) because
+        # ludus.domain is in mydestination and "check" is not a real user.
+        code, _ = smtp.rcpt("user@ludus.domain")
         smtp.rset()   # cancel the transaction before disconnecting
         if code not in (250, 251):
             return False, f"RCPT TO rejected: {code}"
@@ -324,6 +327,13 @@ def check_smb(host, port):
     SMB deep check: send an SMBv1 NEGOTIATE request and verify the server
     replies with a valid SMB packet.  The response signature reveals
     whether the server answered with SMBv1 (\\xffSMB) or SMBv2+ (\\xfeSMB).
+
+    Windows Server 2022 establishes the TCP connection successfully but then
+    sends a TCP RST after receiving an SMBv1-only NEGOTIATE when SMBv1 is
+    disabled or not yet active (e.g. pending reboot after feature install).
+    A post-connect RST means port 445 IS open and the SMB service IS running
+    — the host just refused the specific dialect.  We treat this as UP because
+    the service is reachable; a blue team can still access shares via SMBv2.
     """
     # SMBv1 NEGOTIATE over NetBIOS-over-TCP (port 445)
     # NetBIOS session header: type=0x00 (SESSION_MESSAGE), 3-byte length = 47
@@ -345,25 +355,51 @@ def check_smb(host, port):
         b"\x0c\x00"                               # Byte count = 12
         b"\x02NT LM 0.12\x00"                    # Dialect string
     )
+    # Open the connection first — if this fails the service is genuinely down.
     try:
-        with _tcp_connect(host, port) as s:
-            s.sendall(negotiate)
-            data = s.recv(512)
-        if len(data) < 8:
-            return False, "SMB: response too short"
-        # SMB signature starts at byte 4 (after the 4-byte NetBIOS header)
+        sock = socket.create_connection((host, port), timeout=TIMEOUT)
+        sock.settimeout(TIMEOUT)
+    except socket.timeout:
+        return False, "SMB: connection timed out"
+    except ConnectionRefusedError:
+        return False, "SMB: connection refused"
+    except OSError as e:
+        return False, f"SMB: {e}"
+
+    # Connection established — send the negotiate and read the response.
+    try:
+        sock.sendall(negotiate)
+        data = sock.recv(512)
+    except (ConnectionResetError, ConnectionAbortedError):
+        # Port 445 accepted the TCP connection but Windows RST'd it after
+        # receiving the SMBv1 negotiate (SMBv1 disabled / pending reboot).
+        # The SMB service IS running — score it as UP.
+        return True, "SMB: service UP (SMBv1 rejected, SMBv2-only host)"
+    except socket.timeout:
+        return False, "SMB: timed out waiting for negotiate response"
+    except Exception as e:
+        return False, f"SMB error: {e}"
+    finally:
+        try:
+            sock.close()
+        except Exception:
+            pass
+
+    if len(data) < 4:
+        return False, "SMB: response too short"
+    # NetBIOS negative session response (0x83) = hard rejection
+    if data[0] == 0x83:
+        return False, "SMB: NetBIOS session rejected"
+    if len(data) >= 8:
         sig = data[4:8]
         if sig == b"\xff\x53\x4d\x42":
             return True, "SMB negotiate OK (SMBv1 response)"
         if sig == b"\xfe\x53\x4d\x42":
             return True, "SMB negotiate OK (SMBv2+ response)"
-        return False, f"SMB: unexpected signature: {sig.hex()}"
-    except socket.timeout:
-        return False, "SMB: connection timed out"
-    except ConnectionRefusedError:
-        return False, "SMB: connection refused"
-    except Exception as e:
-        return False, f"SMB error: {e}"
+    # Any other SESSION_MESSAGE (first byte 0x00) means SMB responded
+    if data[0] == 0x00:
+        return True, f"SMB: service responding ({len(data)} bytes)"
+    return False, f"SMB: unexpected response: {data[:8].hex()}"
 
 
 def check_imap_login(host, port, user, password):

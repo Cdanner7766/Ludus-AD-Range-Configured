@@ -83,8 +83,13 @@
     mkdir -p /srv/ftp/pub
     mkdir -p /srv/ftp/upload
     mkdir -p /srv/ftp/incoming
-    # VULN: World-writable FTP root
-    chmod -R 777 /srv/ftp
+    # vsftpd refuses to start if the anonymous chroot root is world-writable,
+    # even with allow_writeable_chroot=YES (that option only covers local users).
+    # Root must be 755; subdirectories can be 777 (still vulnerable).
+    chmod 755 /srv/ftp
+    chmod -R 777 /srv/ftp/pub
+    chmod -R 777 /srv/ftp/upload
+    chmod -R 777 /srv/ftp/incoming
     chown -R ftp:ftp /srv/ftp
     # Create sample files
     echo "Public FTP files - CCDC Practice Range" > /srv/ftp/pub/readme.txt

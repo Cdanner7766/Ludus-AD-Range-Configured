@@ -1,7 +1,7 @@
 """
 SQLite persistence layer for the scoring engine.
 Schema:
-  check_rounds   - one row per check cycle (timestamp, round score, max score)
+  check_rounds   - one row per check cycle (timestamp)
   service_checks - one row per service per cycle (foreign key → check_rounds)
 """
 
@@ -23,19 +23,16 @@ def init_db():
     with _connect() as conn:
         conn.executescript("""
             CREATE TABLE IF NOT EXISTS check_rounds (
-                id          INTEGER PRIMARY KEY AUTOINCREMENT,
-                timestamp   TEXT    NOT NULL,
-                round_score INTEGER NOT NULL,
-                max_score   INTEGER NOT NULL
+                id        INTEGER PRIMARY KEY AUTOINCREMENT,
+                timestamp TEXT    NOT NULL
             );
 
             CREATE TABLE IF NOT EXISTS service_checks (
-                id            INTEGER PRIMARY KEY AUTOINCREMENT,
-                round_id      INTEGER NOT NULL,
-                service_id    TEXT    NOT NULL,
-                up            INTEGER NOT NULL,   -- 1=UP, 0=DOWN
-                points_earned INTEGER NOT NULL,
-                message       TEXT,
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                round_id   INTEGER NOT NULL,
+                service_id TEXT    NOT NULL,
+                up         INTEGER NOT NULL,   -- 1=UP, 0=DOWN
+                message    TEXT,
                 FOREIGN KEY (round_id) REFERENCES check_rounds(id)
             );
 
@@ -44,35 +41,25 @@ def init_db():
         """)
 
 
-def save_round(results, round_score, max_score):
+def save_round(results):
     """
     Persist one complete check cycle.
-    results: list of dicts with keys service_id, up, points_earned, message
+    results: list of dicts with keys service_id, up, message
     """
     ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     with _connect() as conn:
         cur = conn.execute(
-            "INSERT INTO check_rounds (timestamp, round_score, max_score) VALUES (?, ?, ?)",
-            (ts, round_score, max_score),
+            "INSERT INTO check_rounds (timestamp) VALUES (?)",
+            (ts,),
         )
         round_id = cur.lastrowid
         conn.executemany(
-            """INSERT INTO service_checks
-               (round_id, service_id, up, points_earned, message)
-               VALUES (?, ?, ?, ?, ?)""",
+            "INSERT INTO service_checks (round_id, service_id, up, message) VALUES (?, ?, ?, ?)",
             [
-                (round_id, r["service_id"], 1 if r["up"] else 0,
-                 r["points_earned"], r["message"])
+                (round_id, r["service_id"], 1 if r["up"] else 0, r["message"])
                 for r in results
             ],
         )
-
-
-def get_cumulative_score():
-    """Sum of all round scores across the entire competition."""
-    with _connect() as conn:
-        row = conn.execute("SELECT COALESCE(SUM(round_score), 0) FROM check_rounds").fetchone()
-        return row[0]
 
 
 def get_round_count():
@@ -93,16 +80,14 @@ def get_recent_rounds(limit=20):
 def get_service_stats():
     """
     Aggregate per-service statistics across all rounds.
-    Returns a dict keyed by service_id with:
-      total_checks, up_count, total_points
+    Returns a dict keyed by service_id with: total_checks, up_count
     """
     with _connect() as conn:
         rows = conn.execute("""
             SELECT
                 service_id,
-                COUNT(*)        AS total_checks,
-                SUM(up)         AS up_count,
-                SUM(points_earned) AS total_points
+                COUNT(*) AS total_checks,
+                SUM(up)  AS up_count
             FROM service_checks
             GROUP BY service_id
         """).fetchall()
@@ -127,15 +112,8 @@ def get_last_round_results():
         return {r["service_id"]: dict(r) for r in rows}
 
 
-def get_score_history(limit=30):
-    """
-    Return (timestamp, round_score, max_score) for the last N rounds,
-    oldest first — suitable for Chart.js datasets.
-    """
+def clear_all_checks():
+    """Delete all check history from the database."""
     with _connect() as conn:
-        rows = conn.execute(
-            """SELECT timestamp, round_score, max_score
-               FROM check_rounds ORDER BY id DESC LIMIT ?""",
-            (limit,),
-        ).fetchall()
-        return list(reversed([dict(r) for r in rows]))
+        conn.execute("DELETE FROM service_checks")
+        conn.execute("DELETE FROM check_rounds")

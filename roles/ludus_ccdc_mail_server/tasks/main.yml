@@ -57,6 +57,13 @@
       mailbox_size_limit = 0
       recipient_delimiter = +
       home_mailbox = Maildir/
+
+      # Disable reverse PTR lookups for connecting clients.
+      # Without this, Postfix waits for a PTR query on the scoring engine's
+      # IP (10.X.99.Y) which has no PTR record, causing a 15-30s DNS timeout
+      # that exceeds the scoring engine's socket timeout before any SMTP
+      # commands can complete.
+      smtpd_peername_lookups = no
     owner: root
     group: root
     mode: "0644"

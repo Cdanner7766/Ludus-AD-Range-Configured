@@ -96,6 +96,11 @@ def _build_services():
             "host": f"{n}.81",
             "port": 21,
             "check_type": "ftp",
+            "has_credentials": True,
+            # Defaults to anonymous; update via the dashboard once blue team
+            # creates a real FTP account (anonymous login is disabled on hardening).
+            "default_user": "anonymous",
+            "default_pass": "scoring@ccdc.test",
         },
         {
             "id": "smtp",
@@ -112,8 +117,9 @@ def _build_services():
             "host": f"{n}.61",
             "port": 143,
             "check_type": "imap_login",
-            "imap_user": "user",
-            "imap_pass": "password",
+            "has_credentials": True,
+            "default_user": "user",
+            "default_pass": "password",
         },
         {
             "id": "pop3",

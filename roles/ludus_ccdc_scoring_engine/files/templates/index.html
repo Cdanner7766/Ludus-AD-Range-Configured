@@ -209,6 +209,7 @@
             <th class="text-end">Total Checks</th>
             <th style="min-width:130px;">Uptime</th>
             <th style="min-width:260px;">Last Check Message</th>
+            <th style="width:42px;"></th>
           </tr>
         </thead>
         <tbody id="services-tbody">
@@ -245,6 +246,14 @@
                 title="{{ svc.message }}">
               {{ svc.message }}
             </td>
+            <td class="px-1 text-center">
+              {% if svc.has_credentials %}
+              <button class="btn btn-sm"
+                      style="background:none; border:none; color:#8b949e; padding:2px 4px; font-size:1rem;"
+                      title="Update credentials"
+                      onclick="openCredModal('{{ svc.id }}', '{{ svc.name }}')">&#x1F511;</button>
+              {% endif %}
+            </td>
           </tr>
           {% endfor %}
         </tbody>
@@ -280,6 +289,42 @@
   </div>
   {% endif %}
 
+<!-- ─── CREDENTIALS MODAL ────────────────────────────────────────────────── -->
+<div class="modal fade" id="credModal" tabindex="-1" aria-labelledby="credModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content" style="background:#161b22; color:#e6edf3; border:1px solid #30363d;">
+      <div class="modal-header" style="border-color:#30363d;">
+        <h5 class="modal-title" id="credModalLabel">
+          &#x1F511; Update Credentials &mdash; <span id="cred-svc-name" style="color:#79c0ff;"></span>
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size:.82rem; color:#8b949e; margin-bottom:1rem;">
+          New credentials will be used on the next check round. The previous password is not shown.
+        </p>
+        <div class="mb-3">
+          <label for="cred-username" class="form-label" style="font-size:.85rem;">Username</label>
+          <input type="text" id="cred-username" class="form-control"
+                 style="background:#0d1117; color:#e6edf3; border-color:#30363d;"
+                 autocomplete="off" spellcheck="false">
+        </div>
+        <div class="mb-3">
+          <label for="cred-password" class="form-label" style="font-size:.85rem;">Password</label>
+          <input type="password" id="cred-password" class="form-control"
+                 style="background:#0d1117; color:#e6edf3; border-color:#30363d;"
+                 autocomplete="new-password" placeholder="Enter new password">
+        </div>
+        <div id="cred-status" style="font-size:.83rem; min-height:1.2em;"></div>
+      </div>
+      <div class="modal-footer" style="border-color:#30363d;">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-primary" onclick="saveCredentials()">Save Credentials</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 </div><!-- /container-fluid -->
 
 <!-- ─── SCRIPTS ──────────────────────────────────────────────────────────── -->
@@ -297,6 +342,57 @@ setInterval(function () {
 setInterval(function () {
   location.reload();
 }, 30000);
+
+// ── Credentials modal ─────────────────────────────────────────────────────
+let _credSvcId = null;
+let _credModalInstance = null;
+
+function openCredModal(svcId, svcName) {
+  _credSvcId = svcId;
+  document.getElementById('cred-svc-name').textContent = svcName;
+  document.getElementById('cred-username').value = '';
+  document.getElementById('cred-password').value = '';
+  document.getElementById('cred-status').textContent = '';
+  // Pre-fill current username (password is never returned)
+  fetch('/api/credentials/' + svcId)
+    .then(r => r.json())
+    .then(d => { document.getElementById('cred-username').value = d.username || ''; })
+    .catch(() => {});
+  if (!_credModalInstance) {
+    _credModalInstance = new bootstrap.Modal(document.getElementById('credModal'));
+  }
+  _credModalInstance.show();
+}
+
+async function saveCredentials() {
+  const username = document.getElementById('cred-username').value.trim();
+  const password = document.getElementById('cred-password').value;
+  const statusEl = document.getElementById('cred-status');
+  if (!username || !password) {
+    statusEl.style.color = '#f85149';
+    statusEl.textContent = 'Both username and password are required.';
+    return;
+  }
+  try {
+    const resp = await fetch('/api/credentials/' + _credSvcId, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password }),
+    });
+    const data = await resp.json();
+    if (resp.ok && data.ok) {
+      statusEl.style.color = '#3fb950';
+      statusEl.textContent = 'Saved. New credentials will be used on the next check round.';
+      document.getElementById('cred-password').value = '';
+    } else {
+      statusEl.style.color = '#f85149';
+      statusEl.textContent = data.error || 'Save failed.';
+    }
+  } catch (e) {
+    statusEl.style.color = '#f85149';
+    statusEl.textContent = 'Request failed: ' + e;
+  }
+}
 
 // ── Clear history button ──────────────────────────────────────────────────
 async function clearHistory() {

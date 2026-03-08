@@ -1,8 +1,8 @@
 ---
 # tasks file for ludus_ccdc_scoring_engine
 # Deploys the CCDC Blue Team Scoring Engine to SCORE01 as a systemd service.
-# The Python source files are read directly from scoring_engine/ at the repo
-# root (role_path/../../scoring_engine/) so there is only one copy to maintain.
+# Source files are bundled in roles/ludus_ccdc_scoring_engine/files/ so that
+# Ludus can find them after installing the role to its Ansible roles path.
 
 - name: "Install system dependencies"
   ansible.builtin.apt:
@@ -41,12 +41,9 @@
     mode: "0755"
   become: true
 
-# Source files live in scoring_engine/ at the repo root.
-# role_path = <repo>/roles/ludus_ccdc_scoring_engine, so ../../scoring_engine
-# resolves to the repo-root scoring_engine/ directory.
 - name: "Copy scoring engine Python source files"
   ansible.builtin.copy:
-    src: "{{ role_path }}/../../scoring_engine/{{ item }}"
+    src: "{{ item }}"
     dest: "{{ scoring_engine_dir }}/{{ item }}"
     owner: "{{ scoring_engine_user }}"
     group: "{{ scoring_engine_user }}"
@@ -62,7 +59,7 @@
 
 - name: "Copy HTML dashboard template"
   ansible.builtin.copy:
-    src: "{{ role_path }}/../../scoring_engine/templates/index.html"
+    src: "templates/index.html"
     dest: "{{ scoring_engine_dir }}/templates/index.html"
     owner: "{{ scoring_engine_user }}"
     group: "{{ scoring_engine_user }}"

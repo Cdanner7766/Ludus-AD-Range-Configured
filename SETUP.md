@@ -145,18 +145,14 @@ sudo journalctl -u scoring_engine -f
 | LDAP — Active Directory | DC01 (.11) | 389 | LDAPv3 anonymous bind | 100 |
 | Kerberos — Active Directory | DC01 (.11) | 88 | TCP connect | 100 |
 | DNS — Resolution | DNS01 (.71) | 53 | A record query for `web.ludus.domain` | 100 |
-| SMTP — Mail relay | MAIL01 (.61) | 25 | Full relay test (MAIL FROM + RCPT TO + RSET) | 75 |
+| SMTP — Mail relay | MAIL01 (.61) | 25 | 220 banner + EHLO 250 validation | 75 |
 | MySQL — Database | DB01 (.41) | 3306 | MySQL handshake banner | 75 |
 | IMAP — Mail login (`jsmith`) | MAIL01 (.61) | 143 | IMAP LOGIN command | 50 |
 | POP3 — Mail | MAIL01 (.61) | 110 | `+OK` banner | 50 |
 | SMB — File Server | FILESVR (.51) | 445 | SMBv1/v2 negotiate | 50 |
 | FTP — Login (`mlopez`) | FTP01 (.81) | 21 | FTP authenticated login | 50 |
 | RDP — Workstation | PC01-W11 (.21) | 3389 | TCP connect | 50 |
-| SSH — WEB01 | WEB01 (.31) | 22 | SSH banner | 25 |
-| SSH — DB01 | DB01 (.41) | 22 | SSH banner | 25 |
-| SSH — MAIL01 | MAIL01 (.61) | 22 | SSH banner | 25 |
-| SSH — FTP01 | FTP01 (.81) | 22 | SSH banner | 25 |
-| **Total max per round** | | | | **900** |
+| **Total max per round** | | | | **800** |
 
 ## Step 5: Validate the Deployment
 

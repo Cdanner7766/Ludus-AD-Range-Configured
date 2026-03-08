@@ -266,7 +266,7 @@ VLAN 99 - Attacker Network (10.X.99.0/24)
 
 | # | Vulnerability | Technical Detail | Config Location |
 |---|---------------|------------------|-----------------|
-| 1 | **Open SMTP relay** | `smtpd_relay_restrictions = permit` — accepts and relays mail from anyone | `/etc/postfix/main.cf` |
+| 1 | **Open SMTP relay** | `smtpd_relay_restrictions = permit_all`, `smtpd_recipient_restrictions = permit_all` — accepts and relays mail from anyone | `/etc/postfix/main.cf` |
 | 2 | **No SMTP authentication** | `smtpd_sasl_auth_enable = no` — no auth required to send mail | `/etc/postfix/main.cf` |
 | 3 | **No TLS (Postfix)** | `smtpd_tls_security_level = none` — all SMTP traffic in cleartext | `/etc/postfix/main.cf` |
 | 4 | **mynetworks = 0.0.0.0/0** | Treats the entire internet as a trusted network | `/etc/postfix/main.cf` |
@@ -467,11 +467,7 @@ Deployed by the `ludus_ccdc_scoring_engine` Ansible role. Runs as a Python Flask
 | SMB File Server (FILESVR:445) | 50 |
 | FTP Login (FTP01:21) — `mlopez` | 50 |
 | RDP Workstation (PC01-W11:3389) | 50 |
-| SSH WEB01 (:22) | 25 |
-| SSH DB01 (:22) | 25 |
-| SSH MAIL01 (:22) | 25 |
-| SSH FTP01 (:22) | 25 |
-| **Max per round** | **900** |
+| **Max per round** | **800** |
 
 ---
 

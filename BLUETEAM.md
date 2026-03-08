@@ -117,7 +117,7 @@
 
 **Dashboard:** `http://10.X.99.10:8080/`
 
-The scoring engine checks all 15 services every 60 seconds and awards up to **900 points per round**. The dashboard is reachable from any VLAN 10 machine (firewall permits port 8080 outbound to VLAN 99).
+The scoring engine checks all **11 services** every **30 seconds** and tracks per-service uptime. The dashboard is reachable from any VLAN 10 machine (firewall permits port 8080 outbound to VLAN 99).
 
 **Scoring engine service accounts:**
 - **IMAP** (MAIL01:143) — authenticates as `jsmith` / `Ludus2025!`

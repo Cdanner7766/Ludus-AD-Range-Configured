@@ -82,11 +82,29 @@ ludus range deploy -t user-defined-roles --limit <VM_NAME> --only-roles <ROLE_NA
 
 ## Updating a Role
 
-If you modify a role after deployment, re-add it and redeploy:
+> **Important:** `ludus range deploy` always uses the role files that were installed into Ludus at the time you ran `ludus ansible role add`.
+> If you `git pull` changes to this repo and then redeploy **without** re-running `ludus ansible role add`, the deployed VM will still use the old (stale) role files.
+> **Always re-add a role after pulling updates, before redeploying.**
+
+```bash
+# Re-add the changed role, then redeploy only that VM
+ludus ansible role add -d roles/ludus_ccdc_web_server
+ludus range deploy -t user-defined-roles --limit {{ range_id }}-WEB01 --only-roles ludus_ccdc_web_server
+```
+
+To re-add and redeploy **all** roles at once (e.g. after a fresh clone or after pulling multiple changes):
 
 ```bash
 ludus ansible role add -d roles/ludus_ccdc_web_server
-ludus range deploy -t user-defined-roles --limit {{ range_id }}-WEB01 --only-roles ludus_ccdc_web_server
+ludus ansible role add -d roles/ludus_ccdc_db_server
+ludus ansible role add -d roles/ludus_ccdc_file_server
+ludus ansible role add -d roles/ludus_ccdc_mail_server
+ludus ansible role add -d roles/ludus_ccdc_dns_server
+ludus ansible role add -d roles/ludus_ccdc_ftp_server
+ludus ansible role add -d roles/ludus_ccdc_workstation
+ludus ansible role add -d roles/ludus_ccdc_scoring_engine
+ludus ansible role add -d roles/ludus_ccdc_domain_users
+ludus range deploy -t user-defined-roles
 ```
 
 ## Web Server Role Variable
@@ -127,18 +145,14 @@ sudo journalctl -u scoring_engine -f
 | LDAP — Active Directory | DC01 (.11) | 389 | LDAPv3 anonymous bind | 100 |
 | Kerberos — Active Directory | DC01 (.11) | 88 | TCP connect | 100 |
 | DNS — Resolution | DNS01 (.71) | 53 | A record query for `web.ludus.domain` | 100 |
-| SMTP — Mail relay | MAIL01 (.61) | 25 | Full relay test (MAIL FROM + RCPT TO + RSET) | 75 |
+| SMTP — Mail relay | MAIL01 (.61) | 25 | 220 banner + EHLO 250 validation | 75 |
 | MySQL — Database | DB01 (.41) | 3306 | MySQL handshake banner | 75 |
 | IMAP — Mail login (`jsmith`) | MAIL01 (.61) | 143 | IMAP LOGIN command | 50 |
 | POP3 — Mail | MAIL01 (.61) | 110 | `+OK` banner | 50 |
 | SMB — File Server | FILESVR (.51) | 445 | SMBv1/v2 negotiate | 50 |
 | FTP — Login (`mlopez`) | FTP01 (.81) | 21 | FTP authenticated login | 50 |
 | RDP — Workstation | PC01-W11 (.21) | 3389 | TCP connect | 50 |
-| SSH — WEB01 | WEB01 (.31) | 22 | SSH banner | 25 |
-| SSH — DB01 | DB01 (.41) | 22 | SSH banner | 25 |
-| SSH — MAIL01 | MAIL01 (.61) | 22 | SSH banner | 25 |
-| SSH — FTP01 | FTP01 (.81) | 22 | SSH banner | 25 |
-| **Total max per round** | | | | **900** |
+| **Total max per round** | | | | **800** |
 
 ## Step 5: Validate the Deployment
 

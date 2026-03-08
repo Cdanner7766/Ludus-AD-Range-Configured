@@ -44,7 +44,10 @@
       mynetworks = 0.0.0.0/0
 
       # VULN: Accept mail from anyone (open relay)
-      smtpd_relay_restrictions = permit
+      # Both restriction tables must be permissive — in Postfix 3.x,
+      # smtpd_recipient_restrictions is evaluated alongside smtpd_relay_restrictions.
+      smtpd_relay_restrictions = permit_all
+      smtpd_recipient_restrictions = permit_all
 
       # VULN: No TLS - all traffic in cleartext
       smtpd_tls_security_level = none

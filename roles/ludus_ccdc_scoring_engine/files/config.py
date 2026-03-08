@@ -96,6 +96,11 @@ def _build_services():
             "host": f"{n}.81",
             "port": 21,
             "check_type": "ftp",
+            "has_credentials": True,
+            # mlopez is a Ludus Corp logistics employee provisioned by the FTP
+            # server role.  Update via the dashboard if blue team changes the password.
+            "default_user": "mlopez",
+            "default_pass": "Ludus2025!",
         },
         {
             "id": "smtp",
@@ -112,8 +117,11 @@ def _build_services():
             "host": f"{n}.61",
             "port": 143,
             "check_type": "imap_login",
-            "imap_user": "user",
-            "imap_pass": "password",
+            "has_credentials": True,
+            # jsmith is a Ludus Corp IT support employee provisioned by the mail
+            # server role.  Update via the dashboard if blue team changes the password.
+            "default_user": "jsmith",
+            "default_pass": "Ludus2025!",
         },
         {
             "id": "pop3",
@@ -176,41 +184,6 @@ def _build_services():
             "host": f"{n}.21",
             "port": 3389,
             "check_type": "tcp",
-        },
-        # ------------------------------------------------------------------
-        # SSH — admin access to every Linux server
-        # ------------------------------------------------------------------
-        {
-            "id": "ssh_web",
-            "name": "SSH (Web Server)",
-            "machine": "WEB01",
-            "host": f"{n}.31",
-            "port": 22,
-            "check_type": "ssh",
-        },
-        {
-            "id": "ssh_db",
-            "name": "SSH (Database Server)",
-            "machine": "DB01",
-            "host": f"{n}.41",
-            "port": 22,
-            "check_type": "ssh",
-        },
-        {
-            "id": "ssh_mail",
-            "name": "SSH (Mail Server)",
-            "machine": "MAIL01",
-            "host": f"{n}.61",
-            "port": 22,
-            "check_type": "ssh",
-        },
-        {
-            "id": "ssh_ftp",
-            "name": "SSH (FTP Server)",
-            "machine": "FTP01",
-            "host": f"{n}.81",
-            "port": 22,
-            "check_type": "ssh",
         },
     ]
 

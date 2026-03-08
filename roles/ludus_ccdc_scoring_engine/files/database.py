@@ -36,6 +36,12 @@ def init_db():
                 FOREIGN KEY (round_id) REFERENCES check_rounds(id)
             );
 
+            CREATE TABLE IF NOT EXISTS service_credentials (
+                service_id TEXT PRIMARY KEY,
+                username   TEXT NOT NULL,
+                password   TEXT NOT NULL
+            );
+
             CREATE INDEX IF NOT EXISTS idx_sc_round   ON service_checks(round_id);
             CREATE INDEX IF NOT EXISTS idx_sc_service ON service_checks(service_id);
         """)
@@ -117,3 +123,32 @@ def clear_all_checks():
     with _connect() as conn:
         conn.execute("DELETE FROM service_checks")
         conn.execute("DELETE FROM check_rounds")
+
+
+# ---------------------------------------------------------------------------
+# Credential management
+# ---------------------------------------------------------------------------
+
+def get_credential(svc_id):
+    """Return (username, password) stored for svc_id, or (None, None) if unset."""
+    with _connect() as conn:
+        row = conn.execute(
+            "SELECT username, password FROM service_credentials WHERE service_id = ?",
+            (svc_id,),
+        ).fetchone()
+    return (row["username"], row["password"]) if row else (None, None)
+
+
+def set_credential(svc_id, username, password):
+    """Insert or update credentials for svc_id."""
+    with _connect() as conn:
+        conn.execute(
+            """
+            INSERT INTO service_credentials (service_id, username, password)
+            VALUES (?, ?, ?)
+            ON CONFLICT(service_id) DO UPDATE
+              SET username = excluded.username,
+                  password = excluded.password
+            """,
+            (svc_id, username, password),
+        )

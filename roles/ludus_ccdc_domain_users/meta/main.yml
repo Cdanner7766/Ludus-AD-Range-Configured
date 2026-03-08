@@ -1,0 +1,16 @@
+---
+galaxy_info:
+  author: CCDC Range
+  description: Creates realistic Ludus Corporation employee accounts in Active Directory
+  license: MIT
+  min_ansible_version: "2.10"
+  platforms:
+    - name: Windows
+      versions:
+        - all
+  galaxy_tags:
+    - windows
+    - activedirectory
+    - users
+    - ccdc
+dependencies: []

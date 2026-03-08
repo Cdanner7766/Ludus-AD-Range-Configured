@@ -47,6 +47,12 @@
     mode: "0755"
   become: true
 
+- name: "Remove stale scoring database so credentials and history reset on each deploy"
+  ansible.builtin.file:
+    path: "{{ scoring_engine_dir }}/scores.db"
+    state: absent
+  become: true
+
 - name: "Copy scoring engine Python source files"
   ansible.builtin.copy:
     src: "{{ item }}"

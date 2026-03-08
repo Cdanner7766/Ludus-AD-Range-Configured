@@ -82,11 +82,29 @@ ludus range deploy -t user-defined-roles --limit <VM_NAME> --only-roles <ROLE_NA
 
 ## Updating a Role
 
-If you modify a role after deployment, re-add it and redeploy:
+> **Important:** `ludus range deploy` always uses the role files that were installed into Ludus at the time you ran `ludus ansible role add`.
+> If you `git pull` changes to this repo and then redeploy **without** re-running `ludus ansible role add`, the deployed VM will still use the old (stale) role files.
+> **Always re-add a role after pulling updates, before redeploying.**
+
+```bash
+# Re-add the changed role, then redeploy only that VM
+ludus ansible role add -d roles/ludus_ccdc_web_server
+ludus range deploy -t user-defined-roles --limit {{ range_id }}-WEB01 --only-roles ludus_ccdc_web_server
+```
+
+To re-add and redeploy **all** roles at once (e.g. after a fresh clone or after pulling multiple changes):
 
 ```bash
 ludus ansible role add -d roles/ludus_ccdc_web_server
-ludus range deploy -t user-defined-roles --limit {{ range_id }}-WEB01 --only-roles ludus_ccdc_web_server
+ludus ansible role add -d roles/ludus_ccdc_db_server
+ludus ansible role add -d roles/ludus_ccdc_file_server
+ludus ansible role add -d roles/ludus_ccdc_mail_server
+ludus ansible role add -d roles/ludus_ccdc_dns_server
+ludus ansible role add -d roles/ludus_ccdc_ftp_server
+ludus ansible role add -d roles/ludus_ccdc_workstation
+ludus ansible role add -d roles/ludus_ccdc_scoring_engine
+ludus ansible role add -d roles/ludus_ccdc_domain_users
+ludus range deploy -t user-defined-roles
 ```
 
 ## Web Server Role Variable

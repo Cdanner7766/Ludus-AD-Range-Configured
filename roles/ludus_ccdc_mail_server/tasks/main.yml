@@ -58,12 +58,14 @@
       recipient_delimiter = +
       home_mailbox = Maildir/
 
-      # Disable reverse PTR lookups for connecting clients.
-      # Without this, Postfix waits for a PTR query on the scoring engine's
-      # IP (10.X.99.Y) which has no PTR record, causing a 15-30s DNS timeout
-      # that exceeds the scoring engine's socket timeout before any SMTP
-      # commands can complete.
-      smtpd_peername_lookups = no
+      # Disable ALL DNS lookups in smtpd (replaces removed smtpd_peername_lookups).
+      # Postfix 3.x (Debian 12) removed smtpd_peername_lookups; using it produces
+      # "unused parameter" warning and the setting is silently ignored — smtpd
+      # still does reverse PTR lookups on each client IP. The scoring engine's IP
+      # has no PTR record, so each connection hangs for 15-30s before the 220
+      # banner is sent, exceeding the 10s socket timeout.
+      # disable_dns_lookups=yes is the supported replacement in Postfix 3.x.
+      disable_dns_lookups = yes
     owner: root
     group: root
     mode: "0644"

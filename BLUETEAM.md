@@ -14,7 +14,7 @@
 | Domain Admin | `LUDUS\domainadmin` | `password` |
 | Domain User | `LUDUS\domainuser` | `password` |
 
-**Ludus Corporation employee accounts** (exist in AD; also have local accounts on MAIL01 / FTP01):
+**Ludus Corporation employee accounts:**
 
 | Display Name | Username | Password | Department |
 |-------------|----------|----------|------------|
@@ -85,27 +85,27 @@
 
 ### Mail Server (MAIL01)
 
-| Account | Username | Password | Notes |
-|---------|----------|----------|-------|
-| Default user | `debian` | `debian` | |
-| Local user | `mail` | `mail` | VULN: weak account |
-| Local user | `admin` | `admin` | VULN: weak account |
-| Local user | `user` | `password` | VULN: weak account |
-| Root | `root` | `toor` | VULN: weak root |
-| Employee — IT Support | `jsmith` | `Ludus2025!` | **Scoring engine IMAP account** — change via dashboard key icon |
-| Employee — HR | `bwilson` | `Ludus2025!` | |
-| Employee — Finance | `mchen` | `Ludus2025!` | |
+| Account | Username | Password |
+|---------|----------|----------|
+| Default user | `debian` | `debian` |
+| Local user | `mail` | `mail` |
+| Local user | `admin` | `admin` |
+| Local user | `user` | `password` |
+| Root | `root` | `toor` |
+| Employee — IT Support | `jsmith` | `Ludus2025!` |
+| Employee — HR | `bwilson` | `Ludus2025!` |
+| Employee — Finance | `mchen` | `Ludus2025!` |
 
 ### FTP Server (FTP01)
 
-| Account | Username | Password | Notes |
-|---------|----------|----------|-------|
-| Default user | `debian` | `debian` | |
-| Local user | `ftpuser` | `ftpuser` | VULN: weak account |
-| Local user | `admin` | `admin` | VULN: weak account |
-| Root | `root` | `toor` | VULN: weak root |
-| Employee — Logistics | `mlopez` | `Ludus2025!` | **Scoring engine FTP account** — change via dashboard key icon |
-| Employee — Warehouse | `rthomas` | `Ludus2025!` | |
+| Account | Username | Password |
+|---------|----------|----------|
+| Default user | `debian` | `debian` |
+| Local user | `ftpuser` | `ftpuser` |
+| Local user | `admin` | `admin` |
+| Root | `root` | `toor` |
+| Employee — Logistics | `mlopez` | `Ludus2025!` |
+| Employee — Warehouse | `rthomas` | `Ludus2025!` |
 
 ---
 

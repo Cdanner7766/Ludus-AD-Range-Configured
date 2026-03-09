@@ -159,6 +159,27 @@
     iptables -P OUTPUT ACCEPT || true
   become: true
 
+# Postfix smtpd resolves $myhostname before sending the 220 banner.
+# Without a local hosts entry, this DNS lookup stalls (mail.ludus.domain
+# has no PTR/forward record resolvable inside the chroot), causing smtpd
+# to hang indefinitely on every connection — no banner is ever sent.
+- name: "Add mail.ludus.domain to /etc/hosts for local Postfix hostname resolution"
+  ansible.builtin.lineinfile:
+    path: /etc/hosts
+    line: "127.0.0.1 mail.ludus.domain"
+    state: present
+  become: true
+
+- name: "Sync /etc/hosts into Postfix chroot so smtpd can resolve hostname"
+  ansible.builtin.copy:
+    src: /etc/hosts
+    dest: /var/spool/postfix/etc/hosts
+    remote_src: true
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+
 - name: "Start and enable mail services"
   ansible.builtin.shell: |
     systemctl enable postfix

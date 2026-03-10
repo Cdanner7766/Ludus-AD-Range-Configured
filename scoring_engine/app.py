@@ -13,7 +13,7 @@ import threading
 import time
 from datetime import datetime
 
-from flask import Flask, jsonify, render_template
+from flask import Flask, jsonify, render_template, request
 
 import checks
 import config
@@ -34,6 +34,12 @@ log = logging.getLogger("scoring")
 # ---------------------------------------------------------------------------
 _lock = threading.Lock()
 
+# Runtime credential overrides.  Keys are service IDs; values are dicts with
+# the credential fields for that check type (e.g. {"imap_user": "x", ...}).
+# Applied over the static config each round so blue-team password changes can
+# be followed without restarting the engine.
+_cred_overrides: dict = {}
+
 _state = {
     "last_check_time": None,   # ISO string of last completed check
     "next_check_in": 0,        # seconds until next round
@@ -50,8 +56,13 @@ def _run_one_round():
     results = []
 
     for svc in config.SERVICES:
+        # Merge any runtime credential overrides (updated via the UI) so the
+        # check uses the latest credentials without a restart.
+        with _lock:
+            overrides = dict(_cred_overrides.get(svc["id"], {}))
+        effective_svc = {**svc, **overrides}
         try:
-            up, message = checks.run_check(svc)
+            up, message = checks.run_check(effective_svc)
         except Exception as exc:
             up = False
             message = f"Check exception: {exc}"
@@ -115,6 +126,9 @@ def _build_services_display():
     with _lock:
         results = dict(_state["current_results"])
 
+    with _lock:
+        overrides = dict(_cred_overrides)
+
     display = []
     for svc in config.SERVICES:
         sid = svc["id"]
@@ -124,6 +138,32 @@ def _build_services_display():
         total_checks = hist.get("total_checks", 0)
         up_count = hist.get("up_count", 0)
         uptime_pct = round(up_count / total_checks * 100, 1) if total_checks else 0.0
+
+        # Build credential info for services that support runtime updates.
+        # Merge static config defaults with any stored overrides.
+        cred_info = None
+        if svc["check_type"] == "imap_login":
+            ov = overrides.get(sid, {})
+            cred_info = {
+                "fields": [
+                    {"key": "imap_user", "label": "Username",
+                     "value": ov.get("imap_user", svc.get("imap_user", ""))},
+                    {"key": "imap_pass", "label": "Password",
+                     "value": ov.get("imap_pass", svc.get("imap_pass", ""))},
+                ]
+            }
+        elif svc["check_type"] == "rdp_login":
+            ov = overrides.get(sid, {})
+            cred_info = {
+                "fields": [
+                    {"key": "rdp_domain", "label": "Domain",
+                     "value": ov.get("rdp_domain", svc.get("rdp_domain", ""))},
+                    {"key": "rdp_user", "label": "Username",
+                     "value": ov.get("rdp_user", svc.get("rdp_user", ""))},
+                    {"key": "rdp_pass", "label": "Password",
+                     "value": ov.get("rdp_pass", svc.get("rdp_pass", ""))},
+                ]
+            }
 
         display.append({
             "id": sid,
@@ -137,6 +177,7 @@ def _build_services_display():
             "up_count": up_count,
             "total_checks": total_checks,
             "uptime_pct": uptime_pct,
+            "cred_info": cred_info,
         })
     return display
 
@@ -206,6 +247,44 @@ def api_clear():
         _state["last_check_time"] = None
     log.info("Check history cleared by user request.")
     return jsonify({"ok": True})
+
+
+@app.route("/api/credentials/<service_id>", methods=["POST"])
+def api_credentials(service_id):
+    """
+    Update runtime credentials for a service that uses authentication.
+    Accepts JSON: { "imap_user": "x", "imap_pass": "y" }
+                  { "rdp_domain": "d", "rdp_user": "x", "rdp_pass": "y" }
+    Changes take effect on the next check round without a restart.
+    """
+    # Validate service_id exists and supports credential overrides
+    known = {svc["id"]: svc for svc in config.SERVICES}
+    if service_id not in known:
+        return jsonify({"ok": False, "error": "Unknown service"}), 404
+
+    svc = known[service_id]
+    if svc["check_type"] not in ("imap_login", "rdp_login"):
+        return jsonify({"ok": False, "error": "Service does not use credentials"}), 400
+
+    data = request.get_json(force=True, silent=True) or {}
+
+    # Only accept the expected credential keys for this check type
+    allowed = {
+        "imap_login": ("imap_user", "imap_pass"),
+        "rdp_login":  ("rdp_domain", "rdp_user", "rdp_pass"),
+    }[svc["check_type"]]
+
+    update = {k: v for k, v in data.items() if k in allowed and isinstance(v, str) and v}
+    if not update:
+        return jsonify({"ok": False, "error": "No valid credential fields provided"}), 400
+
+    with _lock:
+        if service_id not in _cred_overrides:
+            _cred_overrides[service_id] = {}
+        _cred_overrides[service_id].update(update)
+
+    log.info("Credentials updated for service '%s': fields %s", service_id, list(update))
+    return jsonify({"ok": True, "updated": list(update)})
 
 
 # ---------------------------------------------------------------------------

@@ -96,6 +96,52 @@
 
     code { color: #79c0ff; font-size: .82rem; }
 
+    /* Credential update button */
+    .btn-cred {
+      background: none;
+      border: none;
+      padding: 0 4px;
+      cursor: pointer;
+      color: #8b949e;
+      font-size: .85rem;
+      line-height: 1;
+      vertical-align: middle;
+    }
+    .btn-cred:hover { color: #e6edf3; }
+
+    /* Modal */
+    .cred-modal-backdrop {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,.6);
+      z-index: 1050;
+      align-items: center;
+      justify-content: center;
+    }
+    .cred-modal-backdrop.open { display: flex; }
+    .cred-modal {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 8px;
+      width: 100%;
+      max-width: 380px;
+      padding: 1.25rem;
+    }
+    .cred-modal h6 { margin-bottom: 1rem; font-size: .95rem; }
+    .cred-modal label { font-size: .8rem; color: #8b949e; margin-bottom: .2rem; }
+    .cred-modal input {
+      width: 100%;
+      background: #0d1117;
+      border: 1px solid #30363d;
+      border-radius: 4px;
+      color: #e6edf3;
+      padding: .35rem .6rem;
+      font-size: .85rem;
+      margin-bottom: .75rem;
+    }
+    .cred-modal input:focus { outline: none; border-color: #58a6ff; }
+    .cred-modal-footer { display: flex; gap: .5rem; justify-content: flex-end; }
+
     .checking-pulse {
       animation: pulse 1s infinite;
     }
@@ -217,7 +263,14 @@
             <td class="px-3 fw-semibold" style="font-size:.85rem; white-space:nowrap;">
               {{ svc.machine }}
             </td>
-            <td style="font-size:.85rem;">{{ svc.name }}</td>
+            <td style="font-size:.85rem;">
+              {{ svc.name }}
+              {% if svc.cred_info %}
+              <button class="btn-cred" title="Update credentials"
+                      onclick="openCredModal('{{ svc.id }}', '{{ svc.name }}',
+                               {{ svc.cred_info.fields | tojson }})">&#x1F511;</button>
+              {% endif %}
+            </td>
             <td><code>{{ svc.host }}:{{ svc.port }}</code></td>
             <td>
               {% if svc.up is none %}
@@ -282,6 +335,23 @@
 
 </div><!-- /container-fluid -->
 
+<!-- ─── CREDENTIAL UPDATE MODAL ──────────────────────────────────────────── -->
+<div class="cred-modal-backdrop" id="credModalBackdrop" onclick="closeCredModal(event)">
+  <div class="cred-modal" onclick="event.stopPropagation()">
+    <h6 id="credModalTitle">Update Credentials</h6>
+    <form id="credModalForm" onsubmit="submitCreds(event)">
+      <input type="hidden" id="credServiceId">
+      <div id="credModalFields"></div>
+      <div class="cred-modal-footer">
+        <button type="button" class="btn btn-sm btn-outline-secondary"
+                onclick="closeCredModal()">Cancel</button>
+        <button type="submit" class="btn btn-sm btn-primary">Save</button>
+      </div>
+    </form>
+    <div id="credModalStatus" style="font-size:.78rem; margin-top:.5rem;"></div>
+  </div>
+</div>
+
 <!-- ─── SCRIPTS ──────────────────────────────────────────────────────────── -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 
@@ -310,6 +380,73 @@ async function clearHistory() {
     }
   } catch (e) {
     alert('Clear request failed: ' + e);
+  }
+}
+
+// ── Credential update modal ───────────────────────────────────────────────
+function openCredModal(serviceId, serviceName, fields) {
+  document.getElementById('credModalTitle').textContent =
+    'Update Credentials — ' + serviceName;
+  document.getElementById('credServiceId').value = serviceId;
+  document.getElementById('credModalStatus').textContent = '';
+
+  const container = document.getElementById('credModalFields');
+  container.innerHTML = '';
+  fields.forEach(f => {
+    const label = document.createElement('label');
+    label.textContent = f.label;
+    const input = document.createElement('input');
+    input.type = f.key.includes('pass') ? 'password' : 'text';
+    input.name = f.key;
+    input.placeholder = f.value || f.label;
+    container.appendChild(label);
+    container.appendChild(input);
+  });
+
+  document.getElementById('credModalBackdrop').classList.add('open');
+  // Focus the first input
+  const first = container.querySelector('input');
+  if (first) setTimeout(() => first.focus(), 50);
+}
+
+function closeCredModal(e) {
+  if (e && e.target !== document.getElementById('credModalBackdrop')) return;
+  document.getElementById('credModalBackdrop').classList.remove('open');
+}
+
+async function submitCreds(e) {
+  e.preventDefault();
+  const serviceId = document.getElementById('credServiceId').value;
+  const status = document.getElementById('credModalStatus');
+  const form = document.getElementById('credModalForm');
+  const inputs = form.querySelectorAll('input[name]');
+  const payload = {};
+  inputs.forEach(inp => { if (inp.value) payload[inp.name] = inp.value; });
+
+  if (Object.keys(payload).length === 0) {
+    status.style.color = '#f85149';
+    status.textContent = 'Enter at least one field to update.';
+    return;
+  }
+
+  try {
+    const resp = await fetch('/api/credentials/' + serviceId, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const data = await resp.json();
+    if (data.ok) {
+      status.style.color = '#3fb950';
+      status.textContent = 'Saved. Takes effect on next check round.';
+      setTimeout(() => closeCredModal(), 1500);
+    } else {
+      status.style.color = '#f85149';
+      status.textContent = 'Error: ' + (data.error || 'unknown');
+    }
+  } catch (err) {
+    status.style.color = '#f85149';
+    status.textContent = 'Request failed: ' + err;
   }
 }
 </script>

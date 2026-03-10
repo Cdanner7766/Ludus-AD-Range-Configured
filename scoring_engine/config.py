@@ -75,8 +75,8 @@ CHECK_INTERVAL = 30
 #   machine      - VM name from range-config.yaml
 #   host         - target IP
 #   port         - TCP port
-#   check_type   - one of: http, ftp, smtp, imap_login, banner, dns, mysql,
-#                           ldap, smb, ssh, tcp
+#   check_type   - one of: http, ftp, smtp, imap_login, rdp_login, banner,
+#                           dns, mysql, ldap, smb, ssh, tcp
 # ------------------------------------------------------------------
 def _build_services():
     n = BASE_NET
@@ -112,8 +112,8 @@ def _build_services():
             "host": f"{n}.61",
             "port": 143,
             "check_type": "imap_login",
-            "imap_user": "user",
-            "imap_pass": "password",
+            "imap_user": "jsmith",
+            "imap_pass": "Ludus2025!",
         },
         {
             "id": "pop3",
@@ -167,7 +167,7 @@ def _build_services():
             "check_type": "tcp",
         },
         # ------------------------------------------------------------------
-        # Workstation RDP — users must be able to reach their desktop
+        # Workstation RDP — verify a domain user can authenticate via NLA
         # ------------------------------------------------------------------
         {
             "id": "rdp_pc01",
@@ -175,7 +175,10 @@ def _build_services():
             "machine": "PC01-W11",
             "host": f"{n}.21",
             "port": 3389,
-            "check_type": "tcp",
+            "check_type": "rdp_login",
+            "rdp_domain": "ludus",
+            "rdp_user": "jsmith",
+            "rdp_pass": "Ludus2025!",
         },
         # ------------------------------------------------------------------
         # SSH — admin access to every Linux server

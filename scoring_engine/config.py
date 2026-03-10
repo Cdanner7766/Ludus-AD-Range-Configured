@@ -76,7 +76,7 @@ CHECK_INTERVAL = 30
 #   host         - target IP
 #   port         - TCP port
 #   check_type   - one of: http, ftp, smtp, imap_login, banner, dns, mysql,
-#                           ldap, smb, ssh, tcp
+#                           ldap, smb, ssh, tcp, rdp_login
 # ------------------------------------------------------------------
 def _build_services():
     n = BASE_NET
@@ -96,6 +96,11 @@ def _build_services():
             "host": f"{n}.81",
             "port": 21,
             "check_type": "ftp",
+            "has_credentials": True,
+            # mlopez is a Ludus Corp logistics employee provisioned by the FTP
+            # server role.  Update via the dashboard if blue team changes the password.
+            "default_user": "mlopez",
+            "default_pass": "Ludus2025!",
         },
         {
             "id": "smtp",
@@ -112,8 +117,11 @@ def _build_services():
             "host": f"{n}.61",
             "port": 143,
             "check_type": "imap_login",
-            "imap_user": "user",
-            "imap_pass": "password",
+            "has_credentials": True,
+            # jsmith is a Ludus Corp IT support employee provisioned by the mail
+            # server role.  Update via the dashboard if blue team changes the password.
+            "default_user": "jsmith",
+            "default_pass": "Ludus2025!",
         },
         {
             "id": "pop3",
@@ -167,7 +175,7 @@ def _build_services():
             "check_type": "tcp",
         },
         # ------------------------------------------------------------------
-        # Workstation RDP — users must be able to reach their desktop
+        # Workstation RDP — verify a domain user can authenticate via NLA
         # ------------------------------------------------------------------
         {
             "id": "rdp_pc01",
@@ -175,7 +183,13 @@ def _build_services():
             "machine": "PC01-W11",
             "host": f"{n}.21",
             "port": 3389,
-            "check_type": "tcp",
+            "check_type": "rdp_login",
+            "rdp_domain": "ludus",
+            "has_credentials": True,
+            # jsmith is a Ludus Corp domain user. Update via dashboard if
+            # blue team changes the password.
+            "default_user": "jsmith",
+            "default_pass": "Ludus2025!",
         },
         # ------------------------------------------------------------------
         # SSH — admin access to every Linux server

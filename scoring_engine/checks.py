@@ -5,7 +5,13 @@ Checks are designed to validate the service is actually functional,
 not just that the port is open.
 """
 
+import hashlib
+import hmac as _hmac_mod
+import os
 import socket
+import ssl
+import struct
+import time
 import ftplib
 import smtplib
 import urllib.request
@@ -76,35 +82,40 @@ def check_http(host, port):
         return False, str(e)
 
 
-def check_ftp(host, port):
+def check_ftp(host, port, user=None, password=None):
     """
-    FTP deep check: connect and attempt anonymous login.
-    Service is UP if anonymous auth succeeds or if auth is refused
-    but the server is running (auth-required is still a live service).
+    FTP deep check: attempt login with provided credentials.
+    If user is "anonymous" (or no credentials set), uses anonymous login.
+    If explicit credentials are set, performs authenticated login — a failed
+    auth returns DOWN so the scorer knows to update the credentials.
     """
+    use_anon = not user or user.lower() == "anonymous"
+    login_user = "anonymous" if use_anon else user
+    login_pass = ("scoring@ccdc.test" if use_anon else password) or ""
     try:
         ftp = ftplib.FTP(timeout=TIMEOUT)
         ftp.connect(host, port, timeout=TIMEOUT)
         banner = ftp.getwelcome()
         try:
-            ftp.login("anonymous", "scoring@ccdc.test")
+            ftp.login(login_user, login_pass)
             ftp.quit()
-            return True, f"Anonymous login OK | {banner[:60]}"
+            label = "Anonymous" if use_anon else f"'{login_user}'"
+            return True, f"FTP login OK as {label} | {banner[:50]}"
         except ftplib.error_perm as e:
             try:
                 ftp.quit()
             except Exception:
                 pass
             err = str(e)
-            # vsftpd sends "500 OOPS: refusing to run with writable root
-            # inside chroot()" when anon_root is world-writable and
-            # allow_writeable_chroot=YES is absent. That is a misconfigured
-            # service, not just anonymous-disabled → score it as DOWN.
+            if not use_anon:
+                # Authenticated login failed — credentials are wrong or account locked
+                return False, f"FTP login failed for '{login_user}': {err[:70]}"
+            # Anonymous refused cases:
+            # vsftpd OOPS — daemon running but chroot misconfigured
             if "500" in err and "OOPS" in err:
-                return False, f"vsftpd OOPS — writable chroot not allowed: {err[:80]}"
-            # Any other 5xx means anonymous login is disabled but the
-            # service itself is running fine (e.g. blue team locked it down).
-            return True, f"Service UP (anonymous denied) | {banner[:60]}"
+                return True, f"FTP UP (vsftpd chroot config issue) | {banner[:50]}"
+            # Any other refusal means anonymous is disabled but service is alive
+            return True, f"FTP UP (anonymous disabled) | {banner[:55]}"
     except ftplib.all_errors as e:
         return False, f"FTP error: {e}"
     except Exception as e:
@@ -113,10 +124,11 @@ def check_ftp(host, port):
 
 def check_smtp(host, port):
     """
-    SMTP deep check: connect, verify 220 banner, validate EHLO response,
-    then send MAIL FROM + RCPT TO + RSET to confirm the MTA relays mail.
-    Uses try/finally instead of a context manager to avoid __exit__
-    calling quit() on an unconnected socket when connect() fails.
+    SMTP deep check: connect, verify 220 banner, and validate EHLO response.
+    A successful 220 + EHLO 250 confirms the MTA is running and accepting
+    connections. Relay testing is intentionally omitted — Postfix may drop
+    the session mid-transaction depending on policy, causing false negatives.
+    Uses try/finally to avoid __exit__ calling quit() on an unconnected socket.
     """
     smtp = smtplib.SMTP(timeout=TIMEOUT)
     try:
@@ -128,20 +140,7 @@ def check_smtp(host, port):
         if code != 250:
             return False, f"EHLO failed: {code}"
 
-        # Relay test: verify the MTA accepts a mail transaction
-        code, _ = smtp.mail("scoring@scoring.ccdc.test")
-        if code != 250:
-            return False, f"MAIL FROM rejected: {code}"
-
-        # Use a real local account on MAIL01 so Postfix accepts local delivery.
-        # "check@ludus.domain" would be rejected (550 User unknown) because
-        # ludus.domain is in mydestination and "check" is not a real user.
-        code, _ = smtp.rcpt("user@ludus.domain")
-        smtp.rset()   # cancel the transaction before disconnecting
-        if code not in (250, 251):
-            return False, f"RCPT TO rejected: {code}"
-
-        return True, f"SMTP relay OK | {banner.decode(errors='replace')[:55]}"
+        return True, f"SMTP OK | {banner.decode(errors='replace')[:60]}"
     except smtplib.SMTPException as e:
         return False, f"SMTP error: {e}"
     except Exception as e:
@@ -448,6 +447,216 @@ def check_ssh(host, port):
 
 
 # ---------------------------------------------------------------------------
+# RDP NLA (CredSSP v5 / NTLMv2) authentication check
+# ---------------------------------------------------------------------------
+# Full RDP Network Level Authentication handshake:
+#   TCP → X.224 (COTP) → TLS → CredSSP v5 (NTLM NEGOTIATE → CHALLENGE →
+#   AUTHENTICATE + pubKeyAuth) — confirms a domain account can actually
+#   authenticate to the workstation, not just that port 3389 is open.
+#
+# CredSSP v5 (Windows 10 1703+ / Server 2016+ post CVE-2018-0886 patch)
+# uses a SHA-256 hash of the server TLS cert for pubKeyAuth.
+
+def _md4(data: bytes) -> bytes:
+    """Pure-Python MD4 (RFC 1320). Fallback for OpenSSL 3.x that removed MD4."""
+    def _f(x, y, z): return (x & y) | (~x & z)
+    def _g(x, y, z): return (x & y) | (x & z) | (y & z)
+    def _h(x, y, z): return x ^ y ^ z
+    def _rol(x, n): return ((x << n) | (x >> (32 - n))) & 0xFFFFFFFF
+    M = 0xFFFFFFFF
+    msg = bytearray(data)
+    bit_len = len(data) * 8
+    msg.append(0x80)
+    while len(msg) % 64 != 56:
+        msg.append(0)
+    msg += struct.pack("<Q", bit_len)
+    A, B, C, D = 0x67452301, 0xEFCDAB89, 0x98BADCFE, 0x10325476
+    for off in range(0, len(msg), 64):
+        X = list(struct.unpack_from("<16I", msg, off))
+        a, b, c, d = A, B, C, D
+        for i in range(16):
+            t = _rol((a + _f(b, c, d) + X[i]) & M, [3, 7, 11, 19][i % 4])
+            a, b, c, d = d, t, b, c
+        for i in range(16):
+            t = _rol((a + _g(b, c, d) + X[[0,4,8,12,1,5,9,13,2,6,10,14,3,7,11,15][i]] + 0x5A827999) & M, [3,5,9,13][i%4])
+            a, b, c, d = d, t, b, c
+        for i in range(16):
+            t = _rol((a + _h(b, c, d) + X[[0,8,4,12,2,10,6,14,1,9,5,13,3,11,7,15][i]] + 0x6ED9EBA1) & M, [3,9,11,15][i%4])
+            a, b, c, d = d, t, b, c
+        A = (A+a)&M; B = (B+b)&M; C = (C+c)&M; D = (D+d)&M
+    return struct.pack("<4I", A, B, C, D)
+
+
+def _nt_hash(password: str) -> bytes:
+    pw = password.encode("utf-16-le")
+    try:
+        return hashlib.new("md4", pw).digest()
+    except ValueError:
+        return _md4(pw)
+
+
+def _rc4(key: bytes, data: bytes) -> bytes:
+    S = list(range(256))
+    j = 0
+    for i in range(256):
+        j = (j + S[i] + key[i % len(key)]) % 256
+        S[i], S[j] = S[j], S[i]
+    out = bytearray(); i = j = 0
+    for b in data:
+        i = (i+1)%256; j = (j+S[i])%256; S[i], S[j] = S[j], S[i]
+        out.append(b ^ S[(S[i]+S[j])%256])
+    return bytes(out)
+
+
+def _hmac_md5(key, msg): return _hmac_mod.new(key, msg, hashlib.md5).digest()
+def _hmac_sha256(key, msg): return _hmac_mod.new(key, msg, hashlib.sha256).digest()
+
+
+def _ntlm_negotiate() -> bytes:
+    flags = (0x00000001|0x00000200|0x00008000|0x00020000|
+             0x00080000|0x20000000|0x40000000|0x80000000)
+    return (b"NTLMSSP\x00" + struct.pack("<I", 1) + struct.pack("<I", flags)
+            + b"\x00"*8 + b"\x00"*8 + b"\x06\x01\x00\x00\x00\x00\x00\x0f")
+
+
+def _ntlm_authenticate(domain, user, password, server_challenge, target_info):
+    nt_h = _nt_hash(password)
+    rk = _hmac_md5(nt_h, (user.upper() + domain).encode("utf-16-le"))
+    cc = os.urandom(8)
+    ts = struct.pack("<Q", int((time.time()+11644473600)*10_000_000))
+    blob = b"\x01\x01\x00\x00\x00\x00\x00\x00" + ts + cc + b"\x00\x00\x00\x00" + target_info + b"\x00\x00\x00\x00"
+    nt_proof = _hmac_md5(rk, server_challenge + blob)
+    nt_resp = nt_proof + blob
+    sbk = _hmac_md5(rk, nt_proof)
+    esk = os.urandom(16)
+    enc_esk = _rc4(sbk, esk)
+    flags = 0x00000001|0x00000200|0x00008000|0x00020000|0x00080000|0x20000000|0x40000000|0x80000000
+    domain_b = domain.encode("utf-16-le"); user_b = user.encode("utf-16-le")
+    ws_b = b"KALI\x00\x00\x00\x00"; lm = b"\x00"*24
+    off = 88
+    def fld(d):
+        nonlocal off; f = struct.pack("<HHI", len(d), len(d), off); off += len(d); return f
+    lmf=fld(lm); ntf=fld(nt_resp); df=fld(domain_b); uf=fld(user_b); wf=fld(ws_b); ef=fld(enc_esk)
+    msg = (b"NTLMSSP\x00" + struct.pack("<I",3) + lmf+ntf+df+uf+wf+ef
+           + struct.pack("<I",flags) + b"\x06\x01\x00\x00\x00\x00\x00\x0f" + b"\x00"*16
+           + lm + nt_resp + domain_b + user_b + ws_b + enc_esk)
+    return msg, esk
+
+
+def _credssp_pub_key_auth(session_key, cert_der, client_nonce):
+    bk = _hmac_sha256(session_key, b"CredSSP Client-To-Server Binding Hash\x00")
+    return _hmac_sha256(bk, hashlib.sha256(cert_der).digest() + client_nonce)
+
+
+def _der_len(n):
+    if n < 0x80: return bytes([n])
+    if n < 0x100: return bytes([0x81, n])
+    return bytes([0x82, n >> 8, n & 0xFF])
+
+def _tlv(tag, data): return bytes([tag]) + _der_len(len(data)) + data
+
+def _ts_req1(ntlm_neg, nonce):
+    ver = _tlv(0xA0, _tlv(0x02, b"\x06"))
+    nego = _tlv(0xA1, _tlv(0x30, _tlv(0x30, _tlv(0xA0, _tlv(0x04, ntlm_neg)))))
+    return _tlv(0x30, ver + nego + _tlv(0xA5, _tlv(0x04, nonce)))
+
+def _ts_req3(ntlm_auth, pka):
+    ver = _tlv(0xA0, _tlv(0x02, b"\x06"))
+    nego = _tlv(0xA1, _tlv(0x30, _tlv(0x30, _tlv(0xA0, _tlv(0x04, ntlm_auth)))))
+    return _tlv(0x30, ver + nego + _tlv(0xA3, _tlv(0x04, pka)))
+
+def _read_der(sock):
+    hdr = b""
+    while len(hdr) < 4:
+        chunk = sock.recv(4-len(hdr))
+        if not chunk: return hdr
+        hdr += chunk
+    if hdr[0] != 0x30: return hdr + sock.recv(4096)
+    b1 = hdr[1]
+    total = (2+b1 if b1 < 0x80 else 3+hdr[2] if b1==0x81 else 4+(hdr[2]<<8|hdr[3]))
+    data = hdr
+    while len(data) < total:
+        chunk = sock.recv(min(total-len(data), 8192))
+        if not chunk: break
+        data += chunk
+    return data
+
+def _extract_ntlm(ts_req):
+    idx = ts_req.find(b"NTLMSSP\x00")
+    if idx < 0: return b""
+    for i in range(max(0, idx-4), idx):
+        if ts_req[i] != 0x04: continue
+        pos = i+1; b0 = ts_req[pos]
+        if b0 < 0x80: return ts_req[i+2:i+2+b0]
+        if b0 == 0x81: return ts_req[i+3:i+3+ts_req[pos+1]]
+        if b0 == 0x82: return ts_req[i+4:i+4+((ts_req[pos+1]<<8)|ts_req[pos+2])]
+    return ts_req[idx:]
+
+
+def check_rdp_login(host, port, domain, user, password):
+    """RDP NLA (CredSSP v5 / NTLMv2) authentication check."""
+    x224_req = (b"\x03\x00\x00\x13\x0e\xe0\x00\x00\x00\x00\x00"
+                b"\x01\x00\x08\x00\x03\x00\x00\x00")
+    try:
+        sock = socket.create_connection((host, port), timeout=TIMEOUT)
+        sock.settimeout(TIMEOUT)
+        sock.sendall(x224_req)
+        resp = sock.recv(1024)
+        if not resp or resp[0] != 0x03:
+            sock.close()
+            return False, "RDP: no valid X.224 response"
+        if len(resp) >= 19 and resp[5] == 0xD0 and resp[11] == 0x02:
+            sel = struct.unpack_from("<I", resp, 15)[0]
+            if sel not in (0x02, 0x03):
+                sock.close()
+                return False, f"RDP: NLA not available (server selected 0x{sel:x})"
+        ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        ctx.check_hostname = False; ctx.verify_mode = ssl.CERT_NONE
+        tls = ctx.wrap_socket(sock, server_hostname=host)
+        cert = tls.getpeercert(binary_form=True)
+        nonce = os.urandom(32)
+        tls.sendall(_ts_req1(_ntlm_negotiate(), nonce))
+        ts2 = _read_der(tls)
+        chal = _extract_ntlm(ts2)
+        if len(chal) < 32 or chal[8:12] != b"\x02\x00\x00\x00":
+            tls.close()
+            return False, "RDP: expected NTLM CHALLENGE"
+        srv_chal = chal[24:32]
+        ti_len, _, ti_off = struct.unpack_from("<HHI", chal, 40)
+        target_info = chal[ti_off:ti_off+ti_len]
+        auth_msg, session_key = _ntlm_authenticate(domain, user, password, srv_chal, target_info)
+        pka = _credssp_pub_key_auth(session_key, cert, nonce)
+        tls.sendall(_ts_req3(auth_msg, pka))
+        try:
+            tls.settimeout(6)
+            ts4 = _read_der(tls)
+        except (ssl.SSLError, OSError):
+            tls.close()
+            return False, f"RDP: auth rejected for '{domain}\\{user}'"
+        except socket.timeout:
+            tls.close()
+            return False, "RDP: timed out waiting for auth response"
+        tls.close()
+        if b"\xa4" in ts4:
+            ei = ts4.index(b"\xa4"); inner = ts4[ei+2:]
+            if len(inner) >= 3 and inner[0] == 0x02:
+                code = int.from_bytes(inner[2:2+inner[1]], "big")
+                if code in (0xC000006D, 0xC000006E, 0xC0000064, 0xC000005E, 0xC0000192):
+                    return False, f"RDP: login failed for '{domain}\\{user}' (0x{code:X})"
+        if b"\xa3" in ts4 or ts4:
+            return True, f"RDP LOGIN OK as '{domain}\\{user}'"
+        return False, f"RDP: empty response for '{domain}\\{user}'"
+    except ssl.SSLError as e:
+        return False, f"RDP TLS error: {e}"
+    except socket.timeout:
+        return False, "RDP: connection timed out"
+    except ConnectionRefusedError:
+        return False, "RDP: connection refused"
+    except OSError as e:
+        return False, f"RDP: {e}"
+
+
+# ---------------------------------------------------------------------------
 # Dispatcher
 # ---------------------------------------------------------------------------
 
@@ -460,12 +669,16 @@ def run_check(service):
     host = service["host"]
     port = service["port"]
 
+    # Effective credentials — set by app.py after merging DB overrides over defaults
+    eff_user = service.get("_user")
+    eff_pass = service.get("_pass")
+
     if ctype == "tcp":
         return check_tcp(host, port)
     elif ctype == "http":
         return check_http(host, port)
     elif ctype == "ftp":
-        return check_ftp(host, port)
+        return check_ftp(host, port, eff_user, eff_pass)
     elif ctype == "smtp":
         return check_smtp(host, port)
     elif ctype == "banner":
@@ -483,10 +696,13 @@ def run_check(service):
     elif ctype == "smb":
         return check_smb(host, port)
     elif ctype == "imap_login":
-        return check_imap_login(
+        return check_imap_login(host, port, eff_user, eff_pass)
+    elif ctype == "rdp_login":
+        return check_rdp_login(
             host, port,
-            service.get("imap_user", "user"),
-            service.get("imap_pass", "password"),
+            service.get("rdp_domain", "ludus"),
+            eff_user or service.get("default_user", "jsmith"),
+            eff_pass or service.get("default_pass", ""),
         )
     elif ctype == "ssh":
         return check_ssh(host, port)

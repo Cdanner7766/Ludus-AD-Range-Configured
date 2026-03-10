@@ -13,7 +13,7 @@ import threading
 import time
 from datetime import datetime
 
-from flask import Flask, jsonify, render_template
+from flask import Flask, jsonify, render_template, request
 
 import checks
 import config
@@ -50,8 +50,14 @@ def _run_one_round():
     results = []
 
     for svc in config.SERVICES:
+        # Merge DB credential overrides over config defaults for credentialed services
+        effective_svc = dict(svc)
+        if svc.get("has_credentials"):
+            db_user, db_pass = database.get_credential(svc["id"])
+            effective_svc["_user"] = db_user or svc.get("default_user", "")
+            effective_svc["_pass"] = db_pass or svc.get("default_pass", "")
         try:
-            up, message = checks.run_check(svc)
+            up, message = checks.run_check(effective_svc)
         except Exception as exc:
             up = False
             message = f"Check exception: {exc}"
@@ -137,6 +143,7 @@ def _build_services_display():
             "up_count": up_count,
             "total_checks": total_checks,
             "uptime_pct": uptime_pct,
+            "has_credentials": svc.get("has_credentials", False),
         })
     return display
 
@@ -195,6 +202,31 @@ def api_status():
         "round_count": database.get_round_count(),
         "services": services_out,
     })
+
+
+@app.route("/api/credentials/<svc_id>", methods=["GET", "POST"])
+def api_credentials(svc_id):
+    """GET: return current username for a credentialed service (password never returned).
+       POST: update credentials {username, password}."""
+    svc = next(
+        (s for s in config.SERVICES if s["id"] == svc_id and s.get("has_credentials")),
+        None,
+    )
+    if not svc:
+        return jsonify({"error": "Service not found or does not use credentials"}), 404
+
+    if request.method == "GET":
+        db_user, _ = database.get_credential(svc_id)
+        return jsonify({"username": db_user or svc.get("default_user", "")})
+
+    data = request.get_json(force=True) or {}
+    username = (data.get("username") or "").strip()
+    password = data.get("password") or ""
+    if not username or not password:
+        return jsonify({"error": "Both username and password are required"}), 400
+    database.set_credential(svc_id, username, password)
+    log.info("Credentials updated for service '%s' (user=%s)", svc_id, username)
+    return jsonify({"ok": True})
 
 
 @app.route("/api/clear", methods=["POST"])

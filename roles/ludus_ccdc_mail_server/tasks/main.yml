@@ -2,8 +2,8 @@
 # tasks file for ludus_ccdc_mail_server
 # Configures Postfix + Dovecot mail server with intentional CCDC vulnerabilities
 
-# Install Postfix and Dovecot (do NOT run apt upgrade)
-- name: "Set Postfix preseed selections for non-interactive install"
+# Non-interactive Postfix install (internet site, ludus.domain)
+- name: "Set Postfix preseed selections"
   ansible.builtin.shell: |
     debconf-set-selections <<EOF
     postfix postfix/main_mailer_type select Internet Site
@@ -22,7 +22,11 @@
     update_cache: true
   become: true
 
-# VULN: Configure Postfix as an open relay
+# VULN: Open relay Postfix configuration
+# disable_dns_lookups=yes stops smtpd from doing reverse PTR lookups on every
+# client connection. Without it, smtpd hangs on IPs that have no PTR record
+# (e.g. the scoring engine) until the lookup times out, so the 220 banner is
+# never sent within the check timeout.
 - name: "VULN - Configure Postfix as open relay"
   ansible.builtin.copy:
     dest: /etc/postfix/main.cf
@@ -58,20 +62,16 @@
       recipient_delimiter = +
       home_mailbox = Maildir/
 
-      # Disable ALL DNS lookups in smtpd (replaces removed smtpd_peername_lookups).
-      # Postfix 3.x (Debian 12) removed smtpd_peername_lookups; using it produces
-      # "unused parameter" warning and the setting is silently ignored — smtpd
-      # still does reverse PTR lookups on each client IP. The scoring engine's IP
-      # has no PTR record, so each connection hangs for 15-30s before the 220
-      # banner is sent, exceeding the 10s socket timeout.
-      # disable_dns_lookups=yes is the supported replacement in Postfix 3.x.
+      # Disable smtpd reverse DNS lookups so the scoring engine's IP (no PTR
+      # record) gets the 220 banner immediately instead of waiting for a
+      # lookup timeout on every connection.
       disable_dns_lookups = yes
     owner: root
     group: root
     mode: "0644"
   become: true
 
-# VULN: Configure Dovecot to allow plaintext auth without TLS
+# VULN: Dovecot — plaintext auth, no TLS
 - name: "VULN - Configure insecure Dovecot"
   ansible.builtin.copy:
     dest: /etc/dovecot/dovecot.conf
@@ -107,34 +107,24 @@
     mode: "0644"
   become: true
 
-# VULN: Create weak mail user accounts
-# Note: 'mail' is a Debian system user (uid 8) that already exists.
-# useradd will fail for it, so we separate account creation from password
-# setting so chpasswd always runs regardless of whether useradd succeeded.
+# VULN: Weak mail user accounts
 - name: "VULN - Create weak mail user accounts"
   ansible.builtin.shell: |
-    useradd -m -s /bin/bash mail 2>/dev/null || true
     useradd -m -s /bin/bash admin 2>/dev/null || true
-    useradd -m -s /bin/bash user 2>/dev/null || true
+    useradd -m -s /bin/bash user  2>/dev/null || true
     echo 'mail:mail'     | chpasswd
     echo 'admin:admin'   | chpasswd
     echo 'user:password' | chpasswd
     echo 'root:toor'     | chpasswd
-    # Create Maildir for each user
-    mkdir -p /home/mail/Maildir/{new,cur,tmp}
     mkdir -p /home/admin/Maildir/{new,cur,tmp}
     mkdir -p /home/user/Maildir/{new,cur,tmp}
-    chown -R mail:mail /home/mail/Maildir
     chown -R admin:admin /home/admin/Maildir
-    chown -R user:user /home/user/Maildir
+    chown -R user:user   /home/user/Maildir
   become: true
   ignore_errors: true
 
-# Create realistic employee mail accounts
-# jsmith is used by the scoring engine for IMAP checks (default credential).
-# bwilson and mchen are additional employees that make the mailserver
-# look realistic; blue team may change their passwords without affecting scoring.
-- name: "Create Ludus Corporation employee mail accounts"
+# Scored employee accounts — jsmith is the IMAP scoring account
+- name: "Create employee mail accounts"
   ansible.builtin.shell: |
     useradd -m -s /bin/bash jsmith  2>/dev/null || true
     useradd -m -s /bin/bash bwilson 2>/dev/null || true
@@ -156,31 +146,35 @@
   ansible.builtin.shell: |
     ufw disable || true
     iptables -F || true
-    iptables -P INPUT ACCEPT || true
+    iptables -P INPUT   ACCEPT || true
     iptables -P FORWARD ACCEPT || true
-    iptables -P OUTPUT ACCEPT || true
+    iptables -P OUTPUT  ACCEPT || true
   become: true
 
-# Postfix smtpd resolves $myhostname before sending the 220 banner.
-# Without a local hosts entry, this DNS lookup stalls (mail.ludus.domain
-# has no PTR/forward record resolvable inside the chroot), causing smtpd
-# to hang indefinitely on every connection — no banner is ever sent.
-- name: "Add mail.ludus.domain to /etc/hosts for local Postfix hostname resolution"
+# smtpd resolves $myhostname (mail.ludus.domain) before sending the 220 banner.
+# Adding it to /etc/hosts avoids a DNS round-trip to the DC on every connection.
+- name: "Add mail.ludus.domain to /etc/hosts"
   ansible.builtin.lineinfile:
     path: /etc/hosts
     line: "127.0.0.1 mail.ludus.domain"
     state: present
   become: true
 
-- name: "Sync /etc/hosts into Postfix chroot so smtpd can resolve hostname"
-  ansible.builtin.copy:
-    src: /etc/hosts
-    dest: /var/spool/postfix/etc/hosts
-    remote_src: true
-    owner: root
-    group: root
-    mode: "0644"
+# Debian 12 ships enforcing AppArmor profiles for each Postfix binary.
+# If any profile denies an operation (e.g. accessing a socket or device),
+# smtpd is killed silently before it can send the 220 banner — no log entry
+# is produced because the kill may happen before syslog is even opened.
+# Disabling all Postfix profiles eliminates this failure mode.
+- name: "Disable AppArmor profiles for Postfix"
+  ansible.builtin.shell: |
+    if command -v aa-disable >/dev/null 2>&1; then
+      for profile in /etc/apparmor.d/usr.lib.postfix.*; do
+        [ -f "$profile" ] && aa-disable "$profile" 2>/dev/null || true
+      done
+      systemctl reload apparmor 2>/dev/null || true
+    fi
   become: true
+  ignore_errors: true
 
 - name: "Start and enable mail services"
   ansible.builtin.shell: |

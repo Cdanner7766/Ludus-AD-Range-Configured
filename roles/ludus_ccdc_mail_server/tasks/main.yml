@@ -2,6 +2,17 @@
 # tasks file for ludus_ccdc_mail_server
 # Configures Postfix + Dovecot mail server with intentional CCDC vulnerabilities
 
+# Purge any existing Postfix installation so every role run starts from a clean
+# slate.  This eliminates stale configs, broken chroot state, or corrupted
+# binaries from a previous (possibly partial) install that could prevent smtpd
+# from spawning correctly.
+- name: "Purge existing Postfix installation for a clean rebuild"
+  ansible.builtin.apt:
+    name: postfix
+    state: absent
+    purge: true
+  become: true
+
 # Install Postfix and Dovecot (do NOT run apt upgrade)
 - name: "Set Postfix preseed selections for non-interactive install"
   ansible.builtin.shell: |
@@ -181,6 +192,26 @@
     group: root
     mode: "0644"
   become: true
+
+# Debian 12 ships AppArmor profiles for each Postfix binary
+# (e.g. /etc/apparmor.d/usr.lib.postfix.smtpd).  When AppArmor is active
+# and enforcing, a profile that denies a required operation (e.g. a missing
+# /dev/log socket, a capability, or a path) causes smtpd to be killed silently
+# before it sends the 220 banner — with no log entry because syslog itself may
+# be the denied resource.  This is the most likely cause of smtpd never
+# appearing in `ps` and the scoring engine timing out on every check.
+# Disabling all Postfix AppArmor profiles eliminates this failure mode entirely.
+- name: "Disable AppArmor profiles for Postfix (prevents smtpd silent kill)"
+  ansible.builtin.shell: |
+    if command -v aa-disable >/dev/null 2>&1; then
+      for profile in /etc/apparmor.d/usr.lib.postfix.*; do
+        [ -f "$profile" ] && aa-disable "$profile" 2>/dev/null || true
+      done
+      # Reload AppArmor policy so the aa-disable takes effect immediately
+      systemctl reload apparmor 2>/dev/null || true
+    fi
+  become: true
+  ignore_errors: true
 
 - name: "Start and enable mail services"
   ansible.builtin.shell: |

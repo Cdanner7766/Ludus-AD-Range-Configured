@@ -76,7 +76,7 @@ CHECK_INTERVAL = 30
 #   host         - target IP
 #   port         - TCP port
 #   check_type   - one of: http, ftp, smtp, imap_login, banner, dns, mysql,
-#                           ldap, smb, ssh, tcp
+#                           ldap, smb, ssh, tcp, rdp_login
 # ------------------------------------------------------------------
 def _build_services():
     n = BASE_NET
@@ -175,7 +175,7 @@ def _build_services():
             "check_type": "tcp",
         },
         # ------------------------------------------------------------------
-        # Workstation RDP — users must be able to reach their desktop
+        # Workstation RDP — verify a domain user can authenticate via NLA
         # ------------------------------------------------------------------
         {
             "id": "rdp_pc01",
@@ -183,7 +183,48 @@ def _build_services():
             "machine": "PC01-W11",
             "host": f"{n}.21",
             "port": 3389,
-            "check_type": "tcp",
+            "check_type": "rdp_login",
+            "rdp_domain": "ludus",
+            "has_credentials": True,
+            # jsmith is a Ludus Corp domain user. Update via dashboard if
+            # blue team changes the password.
+            "default_user": "jsmith",
+            "default_pass": "Ludus2025!",
+        },
+        # ------------------------------------------------------------------
+        # SSH — admin access to every Linux server
+        # ------------------------------------------------------------------
+        {
+            "id": "ssh_web",
+            "name": "SSH (Web Server)",
+            "machine": "WEB01",
+            "host": f"{n}.31",
+            "port": 22,
+            "check_type": "ssh",
+        },
+        {
+            "id": "ssh_db",
+            "name": "SSH (Database Server)",
+            "machine": "DB01",
+            "host": f"{n}.41",
+            "port": 22,
+            "check_type": "ssh",
+        },
+        {
+            "id": "ssh_mail",
+            "name": "SSH (Mail Server)",
+            "machine": "MAIL01",
+            "host": f"{n}.61",
+            "port": 22,
+            "check_type": "ssh",
+        },
+        {
+            "id": "ssh_ftp",
+            "name": "SSH (FTP Server)",
+            "machine": "FTP01",
+            "host": f"{n}.81",
+            "port": 22,
+            "check_type": "ssh",
         },
     ]
 

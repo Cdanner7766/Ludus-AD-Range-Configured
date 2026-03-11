@@ -21,7 +21,6 @@ variable "ansible_home"            { type = string }
 variable "ludus_nat_interface"     { type = string }
 
 locals {
-  # Ludus extracts the template name via regex: (?m)[^"]*?-template
   vm_name = "kali-2025.4-x64-desktop-template"
 }
 

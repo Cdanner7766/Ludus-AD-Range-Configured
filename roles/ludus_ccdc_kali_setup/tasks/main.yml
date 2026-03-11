@@ -26,31 +26,10 @@
     upgrade: full
   become: true
 
-# Repair any pre-existing broken packages (e.g. davtest dependency issues
-# seen in Kali 2026.1) before attempting the main install.
-# apt-get -f --fix-missing clears what it can; dpkg --force-depends --configure -a
-# force-configures any packages stuck in half-installed state so the
-# main install isn't blocked by an unresolvable download failure.
-- name: Fix broken packages before install
-  ansible.builtin.shell: |
-    DEBIAN_FRONTEND=noninteractive apt-get install -f -y --fix-missing || true
-    dpkg --force-depends --configure -a || true
-  args:
-    executable: /bin/bash
-  become: true
-
-# Use shell so we can pass --fix-missing (not available on the apt module).
-# --fix-missing skips packages whose .deb can't be fetched and retries the
-# rest, so a single bad mirror entry won't abort the entire install.
-# Retries 3 times with a 60s delay in case of transient network errors.
 - name: Install kali-linux-default tools
   ansible.builtin.shell: |
-    DEBIAN_FRONTEND=noninteractive apt-get install -y --fix-missing kali-linux-default
+    DEBIAN_FRONTEND=noninteractive apt install kali-linux-default -y --fix-missing
   args:
     executable: /bin/bash
   become: true
-  register: apt_result
-  until: apt_result.rc == 0
-  retries: 3
-  delay: 60
-  changed_when: "'newly installed' in apt_result.stdout or 'upgraded' in apt_result.stdout"
+  changed_when: true

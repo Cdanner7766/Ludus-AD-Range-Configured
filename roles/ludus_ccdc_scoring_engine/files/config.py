@@ -135,8 +135,9 @@ def _build_services():
         {
             "id": "dns",
             "name": "DNS Server",
-            "machine": "DNS01",
-            "host": f"{n}.71",
+            # DNS is now served by DC01 (AD-integrated zone). DNS01 removed.
+            "machine": "DC01",
+            "host": f"{n}.11",
             "port": 53,
             "check_type": "dns",
             "dns_query": "web.ludus.domain",
@@ -190,41 +191,6 @@ def _build_services():
             # blue team changes the password.
             "default_user": "jsmith",
             "default_pass": "Ludus2025!",
-        },
-        # ------------------------------------------------------------------
-        # SSH — admin access to every Linux server
-        # ------------------------------------------------------------------
-        {
-            "id": "ssh_web",
-            "name": "SSH (Web Server)",
-            "machine": "WEB01",
-            "host": f"{n}.31",
-            "port": 22,
-            "check_type": "ssh",
-        },
-        {
-            "id": "ssh_db",
-            "name": "SSH (Database Server)",
-            "machine": "DB01",
-            "host": f"{n}.41",
-            "port": 22,
-            "check_type": "ssh",
-        },
-        {
-            "id": "ssh_mail",
-            "name": "SSH (Mail Server)",
-            "machine": "MAIL01",
-            "host": f"{n}.61",
-            "port": 22,
-            "check_type": "ssh",
-        },
-        {
-            "id": "ssh_ftp",
-            "name": "SSH (FTP Server)",
-            "machine": "FTP01",
-            "host": f"{n}.81",
-            "port": 22,
-            "check_type": "ssh",
         },
     ]
 

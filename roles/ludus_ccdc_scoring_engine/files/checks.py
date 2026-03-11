@@ -427,25 +427,6 @@ def check_imap_login(host, port, user, password):
         return False, f"IMAP error: {e}"
 
 
-def check_ssh(host, port):
-    """
-    SSH check: connect and read the server identification string.
-    A live SSH daemon always sends a banner starting with 'SSH-'.
-    """
-    try:
-        with _tcp_connect(host, port) as s:
-            banner = s.recv(256).decode("utf-8", errors="replace").strip()
-            if banner.startswith("SSH-"):
-                return True, f"SSH: {banner[:60]}"
-            return False, f"SSH: unexpected banner: {banner[:40]}"
-    except socket.timeout:
-        return False, "SSH: connection timed out"
-    except ConnectionRefusedError:
-        return False, "SSH: connection refused"
-    except Exception as e:
-        return False, str(e)
-
-
 # ---------------------------------------------------------------------------
 # RDP NLA (CredSSP v5 / NTLMv2) authentication check
 # ---------------------------------------------------------------------------
@@ -704,7 +685,5 @@ def run_check(service):
             eff_user or service.get("default_user", "jsmith"),
             eff_pass or service.get("default_pass", ""),
         )
-    elif ctype == "ssh":
-        return check_ssh(host, port)
     else:
         return False, f"Unknown check type: {ctype}"

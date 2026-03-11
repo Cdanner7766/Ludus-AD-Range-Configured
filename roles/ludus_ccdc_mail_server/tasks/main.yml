@@ -62,9 +62,15 @@
       recipient_delimiter = +
       home_mailbox = Maildir/
 
-      # Disable smtpd reverse DNS lookups so the scoring engine's IP (no PTR
-      # record) gets the 220 banner immediately instead of waiting for a
-      # lookup timeout on every connection.
+      # smtpd_peername_lookup = no: disables smtpd's reverse PTR lookup on each
+      # connecting client.  Without this, smtpd looks up the client hostname
+      # before sending the 220 banner; for IPs with no PTR record (e.g. the
+      # scoring engine) the lookup times out and the banner is never sent
+      # within the check's 10-second window.
+      smtpd_peername_lookup = no
+
+      # disable_dns_lookups = yes: disables DNS (MX) lookups in the Postfix
+      # SMTP delivery client (outbound only — does not affect smtpd).
       disable_dns_lookups = yes
     owner: root
     group: root

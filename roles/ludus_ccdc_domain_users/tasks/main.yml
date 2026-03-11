@@ -8,6 +8,39 @@
 #   IMAP (MAIL01) - jsmith / Ludus2025!
 #   FTP  (FTP01)  - mlopez / Ludus2025!
 
+# DNS01 has been consolidated onto DC01.  DC01 already runs AD-integrated DNS
+# for ludus.domain (created automatically by Ludus during domain promotion).
+# We add service A records and apply intentional CCDC DNS vulnerabilities here.
+- name: "VULN - Add service DNS records and configure insecure DNS on DC01"
+  ansible.windows.win_powershell:
+    script: |
+      # Derive the range network base from this DC's own IP
+      $myIp = (Get-NetIPAddress -InterfaceAlias "Ethernet*" -AddressFamily IPv4 |
+               Where-Object { $_.IPAddress -like "10.*" }).IPAddress
+      $parts = $myIp.Split('.')
+      $base  = "$($parts[0]).$($parts[1]).$($parts[2])"
+      $zone  = "ludus.domain"
+
+      # Add A records for scored services (non-domain hosts won't self-register)
+      Add-DnsServerResourceRecordA -ZoneName $zone -Name "web"   -IPv4Address "$base.31" -ErrorAction SilentlyContinue
+      Add-DnsServerResourceRecordA -ZoneName $zone -Name "db"    -IPv4Address "$base.41" -ErrorAction SilentlyContinue
+      Add-DnsServerResourceRecordA -ZoneName $zone -Name "files" -IPv4Address "$base.51" -ErrorAction SilentlyContinue
+      Add-DnsServerResourceRecordA -ZoneName $zone -Name "mail"  -IPv4Address "$base.61" -ErrorAction SilentlyContinue
+      Add-DnsServerResourceRecordA -ZoneName $zone -Name "ftp"   -IPv4Address "$base.81" -ErrorAction SilentlyContinue
+      Add-DnsServerResourceRecordMX -ZoneName $zone -Name "." -MailExchange "mail.ludus.domain" -Preference 10 -ErrorAction SilentlyContinue
+
+      # VULN: Allow zone transfers to any host (AXFR to anyone)
+      # Secure option (DISABLED): restrict SecureSecondaries to specific IPs only
+      Set-DnsServerPrimaryZone -Name $zone -SecureSecondaries TransferAnyServer -ErrorAction SilentlyContinue
+
+      # VULN: Enable recursion from any source (DNS amplification risk)
+      # Secure option (DISABLED): Set-DnsServerRecursion -Enable $false
+      Set-DnsServerRecursion -Enable $true
+
+      # VULN: Disable DNS debug/event logging (hides attacker activity)
+      # Secure option (DISABLED): Set-DnsServerDiagnostics -All $true
+      Set-DnsServerDiagnostics -All $false
+
 - name: "Create Ludus Corporation domain user accounts"
   ansible.windows.win_powershell:
     script: |

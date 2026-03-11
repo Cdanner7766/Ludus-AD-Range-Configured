@@ -11,6 +11,12 @@ ludus:
   #   mchen   - Michelle Chen,  Finance
   #   mlopez  - Maria Lopez,    Logistics  (FTP scoring account on FTP01)
   #   rthomas - Robert Thomas,  Warehouse
+  # DNS scored here (AD-integrated zone) - port 53
+  # DNS VULNS (applied via ludus_ccdc_domain_users role):
+  #   - Zone transfers allowed to any host (AXFR to anyone)
+  #   - Recursive queries allowed from any source (DNS amplification)
+  #   - No DNSSEC validation
+  #   - Verbose DNS logging disabled (no audit trail)
   # ============================================================
   - vm_name: "{{ range_id }}-ad-dc-win2022-server-x64"
     hostname: "{{ range_id }}-DC01-2022"
@@ -166,34 +172,6 @@ ludus:
       block_internet: false
     roles:
       - ludus_ccdc_mail_server
-
-  # ============================================================
-  # DNS SERVER (Windows Server 2022) - Windows DNS
-  # Domain-joined, domain-integrated DNS zones
-  # Service: DNS on port 53 (TCP/UDP)
-  # Credentials: Administrator / password, ludus.domain accounts
-  # VULNS:
-  #   - Zone transfers allowed to any host (AXFR to anyone)
-  #   - Recursive queries allowed from any source (DNS amplification)
-  #   - No DNSSEC validation
-  #   - Firewall disabled
-  #   - DNS cache poisoning possible (no source port randomization enforced)
-  #   - Verbose DNS logging disabled (no audit trail)
-  # ============================================================
-  - vm_name: "{{ range_id }}-win2022-dnssvr"
-    hostname: "{{ range_id }}-DNS01"
-    template: win2022-server-x64-template
-    vlan: 10
-    ip_last_octet: 71
-    ram_gb: 4
-    cpus: 2
-    windows:
-      sysprep: true
-    domain:
-      fqdn: ludus.domain
-      role: member
-    roles:
-      - ludus_ccdc_dns_server
 
   # ============================================================
   # FTP SERVER (Ubuntu 22.04) - vsftpd

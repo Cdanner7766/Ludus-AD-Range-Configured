@@ -21,6 +21,11 @@
     update_cache: true
   become: true
 
+- name: Full upgrade all packages
+  ansible.builtin.apt:
+    upgrade: full
+  become: true
+
 # Repair any pre-existing broken packages (e.g. davtest dependency issues
 # seen in Kali 2026.1) before attempting the main install.
 # apt-get -f --fix-missing clears what it can; dpkg --force-depends --configure -a

@@ -2,7 +2,7 @@
 
 ## Overview
 
-This Ludus range deploys a full Active Directory environment with 12 virtual machines across 2 VLANs, designed for CCDC (Collegiate Cyber Defense Competition) practice. The environment contains intentional vulnerabilities across all service VMs that blue teams must identify and remediate while maintaining service availability.
+This Ludus range deploys a full Active Directory environment with 11 virtual machines across 2 VLANs, designed for CCDC (Collegiate Cyber Defense Competition) practice. The environment contains intentional vulnerabilities across all service VMs that blue teams must identify and remediate while maintaining service availability.
 
 **Domain:** `ludus.domain`
 **Network:** `10.{RANGE_ID}.0.0/16` (VLAN determines third octet)
@@ -13,13 +13,12 @@ This Ludus range deploys a full Active Directory environment with 12 virtual mac
 
 ```
 VLAN 10 - Corporate Network (10.X.10.0/24)
-├── DC01-2022    (.11)  - Domain Controller (Windows Server 2022)
+├── DC01-2022    (.11)  - Domain Controller + DNS (Windows Server 2022)
 ├── PC01-W11     (.21)  - Workstation (Windows 11 Enterprise)
 ├── WEB01        (.31)  - Web Server (Ubuntu 24.04)
 ├── DB01         (.41)  - Database Server (Debian 12)
 ├── FILESVR      (.51)  - File Server (Windows Server 2022)
 ├── MAIL01       (.61)  - Mail Server (Debian 12)
-├── DNS01        (.71)  - DNS Server (Windows Server 2022)
 └── FTP01        (.81)  - FTP Server (Ubuntu 22.04)
 
 VLAN 99 - Attacker Network (10.X.99.0/24)
@@ -50,6 +49,7 @@ VLAN 99 - Attacker Network (10.X.99.0/24)
 | IP | `10.X.10.11` |
 | RAM / CPUs | 8 GB / 4 |
 | Domain Role | Primary DC for `ludus.domain` |
+| Ports | 53/tcp+udp (DNS), 88/tcp (Kerberos), 389/tcp (LDAP), 445/tcp (SMB) |
 
 **Credentials:**
 
@@ -69,7 +69,27 @@ VLAN 99 - Attacker Network (10.X.99.0/24)
 | Maria Lopez | `mlopez` | `Ludus2025!` | Logistics *(FTP scoring account on FTP01)* |
 | Robert Thomas | `rthomas` | `Ludus2025!` | Warehouse |
 
-**Services:** Active Directory, DNS (domain-integrated), DHCP, Group Policy, Kerberos, LDAP
+**Services:** Active Directory, DNS (AD-integrated zone, scored), DHCP, Group Policy, Kerberos, LDAP
+
+**DNS Records (ludus.domain AD-integrated zone):**
+
+| Record | Type | Value |
+|--------|------|-------|
+| `web.ludus.domain` | A | `10.X.10.31` |
+| `db.ludus.domain` | A | `10.X.10.41` |
+| `files.ludus.domain` | A | `10.X.10.51` |
+| `mail.ludus.domain` | A | `10.X.10.61` |
+| `ftp.ludus.domain` | A | `10.X.10.81` |
+| `ludus.domain` | MX | `mail.ludus.domain` (priority 10) |
+
+**Vulnerabilities (DNS — applied by `ludus_ccdc_domain_users` role):**
+
+| # | Vulnerability | Technical Detail | Config Location |
+|---|---------------|------------------|-----------------|
+| 1 | **Zone transfers to anyone** | `SecureSecondaries = TransferAnyServer` — AXFR dumps full zone to any requester | `Set-DnsServerPrimaryZone` |
+| 2 | **Recursion enabled globally** | Open recursive resolver — DNS amplification attack vector | `Set-DnsServerRecursion -Enable $true` |
+| 3 | **No DNSSEC** | No DNSSEC validation — DNS cache poisoning possible | DNS server settings |
+| 4 | **DNS logging disabled** | `Set-DnsServerDiagnostics -All $false` — no audit trail for queries | DNS diagnostics |
 
 ---
 
@@ -278,50 +298,7 @@ VLAN 99 - Attacker Network (10.X.99.0/24)
 
 ---
 
-### 7. DNS Server (DNS01)
-
-| Property | Value |
-|----------|-------|
-| Hostname | `{RANGE_ID}-DNS01` |
-| OS | Windows Server 2022 |
-| IP | `10.X.10.71` |
-| RAM / CPUs | 4 GB / 2 |
-| Domain Role | Member of `ludus.domain` |
-| Service | Windows DNS Server |
-| Ports | 53/tcp, 53/udp (DNS) |
-
-**Credentials:**
-
-| Account | Username | Password |
-|---------|----------|----------|
-| Local Administrator | `Administrator` | `password` |
-| Domain Admin | `LUDUS\domainadmin` | `password` |
-| Domain User | `LUDUS\domainuser` | `password` |
-
-**DNS Records (ludus.domain zone):**
-
-| Record | Type | Value |
-|--------|------|-------|
-| `web.ludus.domain` | A | `10.X.10.31` |
-| `db.ludus.domain` | A | `10.X.10.41` |
-| `files.ludus.domain` | A | `10.X.10.51` |
-| `mail.ludus.domain` | A | `10.X.10.61` |
-| `ftp.ludus.domain` | A | `10.X.10.81` |
-| `ludus.domain` | MX | `mail.ludus.domain` (priority 10) |
-
-**Vulnerabilities:**
-
-| # | Vulnerability | Technical Detail | Config Location |
-|---|---------------|------------------|-----------------|
-| 1 | **Zone transfers to anyone** | `SecureSecondaries = TransferAnyServer` — AXFR dumps full zone | `Set-DnsServerPrimaryZone` |
-| 2 | **Recursion enabled globally** | Open recursive resolver — DNS amplification attack vector | `Set-DnsServerRecursion -Enable $true` |
-| 3 | **No DNSSEC** | No DNSSEC validation — DNS cache poisoning possible | DNS server settings |
-| 4 | **DNS logging disabled** | `Set-DnsServerDiagnostics -All $false` — no audit trail | DNS diagnostics |
-| 5 | **Windows Firewall disabled** | All profiles (Domain, Public, Private) disabled | `Set-NetFirewallProfile -Enabled False` |
-
----
-
-### 8. FTP Server (FTP01)
+### 7. FTP Server (FTP01)
 
 | Property | Value |
 |----------|-------|
@@ -373,7 +350,7 @@ VLAN 99 - Attacker Network (10.X.99.0/24)
 
 ---
 
-### 9. Kali Linux 1 (Red Team)
+### 8. Kali Linux 1 (Red Team)
 
 | Property | Value |
 |----------|-------|
@@ -391,7 +368,7 @@ VLAN 99 - Attacker Network (10.X.99.0/24)
 
 ---
 
-### 10. Kali Linux 2 (Red Team)
+### 9. Kali Linux 2 (Red Team)
 
 | Property | Value |
 |----------|-------|
@@ -409,7 +386,7 @@ VLAN 99 - Attacker Network (10.X.99.0/24)
 
 ---
 
-### 11. Kali Linux 3 (Red Team)
+### 10. Kali Linux 3 (Red Team)
 
 | Property | Value |
 |----------|-------|
@@ -427,7 +404,7 @@ VLAN 99 - Attacker Network (10.X.99.0/24)
 
 ---
 
-### 12. Scoring Engine (SCORE01)
+### 11. Scoring Engine (SCORE01)
 
 | Property | Value |
 |----------|-------|
@@ -449,7 +426,7 @@ VLAN 99 - Attacker Network (10.X.99.0/24)
 
 Deployed by the `ludus_ccdc_scoring_engine` Ansible role. Runs as a Python Flask application under the `scoring` system user, managed by systemd (`scoring_engine.service`). Results are stored in SQLite at `/opt/scoring_engine/scoring.db`.
 
-- Polls all 13 blue-team services every **60 seconds**
+- Polls all **11 services** every **30 seconds**
 - Scores each check pass/fail with point values ranging from 25–100 pts
 - Auto-detects the range ID from the scoring machine's `10.X.99.Y` IP
 - Live dashboard available at **`http://10.X.99.10:8080/`** from VLAN 10 machines (port 8080 is permitted through the firewall)
@@ -459,7 +436,7 @@ Deployed by the `ludus_ccdc_scoring_engine` Ansible role. Runs as a Python Flask
 | HTTP Company Portal (WEB01:80) | 100 |
 | LDAP — Active Directory (DC01:389) | 100 |
 | Kerberos — Active Directory (DC01:88) | 100 |
-| DNS Resolution (DNS01:53) | 100 |
+| DNS Resolution (DC01:53) | 100 |
 | SMTP Open Relay (MAIL01:25) | 75 |
 | MySQL Database (DB01:3306) | 75 |
 | IMAP Login (MAIL01:143) — `jsmith` | 50 |
@@ -529,10 +506,10 @@ Deployed by the `ludus_ccdc_scoring_engine` Ansible role. Runs as a Python Flask
 
 | Machine | Vulnerability Count |
 |---------|:-------------------:|
+| DC01 | 4 |
 | WEB01 | 18 |
 | DB01 | 10 |
 | FILESVR | 8 |
 | MAIL01 | 9 |
-| DNS01 | 5 |
 | FTP01 | 10 |
-| **Total** | **60** |
+| **Total** | **59** |

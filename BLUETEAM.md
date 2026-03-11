@@ -40,21 +40,11 @@
 | Domain Admin | `LUDUS\domainadmin` | `password` |
 | Domain User | `LUDUS\domainuser` | `password` |
 
-### DNS Server (DNS01)
-
-| Account | Username | Password |
-|---------|----------|----------|
-| Local Administrator | `Administrator` | `password` |
-| Domain Admin | `LUDUS\domainadmin` | `password` |
-| Domain User | `LUDUS\domainuser` | `password` |
-
 ---
 
 ## Linux Machines
 
 ### Web Server (WEB01)
-
-**OS Accounts:**
 
 | Account | Username | Password |
 |---------|----------|----------|
@@ -113,14 +103,6 @@
 
 | Account | Username | Password |
 |---------|----------|----------|
-| Ludus default | `debian` | `debian` |
+| Default user | `debian` | `debian` |
 
 **Dashboard:** `http://10.X.99.10:8080/`
-
-The scoring engine checks all **11 services** every **30 seconds** and tracks per-service uptime. The dashboard is reachable from any VLAN 10 machine (firewall permits port 8080 outbound to VLAN 99).
-
-**Scoring engine service accounts:**
-- **IMAP** (MAIL01:143) — authenticates as `jsmith` / `Ludus2025!`
-- **FTP** (FTP01:21) — authenticates as `mlopez` / `Ludus2025!`
-
-If blue team changes either password, update the credential via the dashboard key (🔑) icon next to that service. Scoring resumes automatically on the next 30-second cycle.

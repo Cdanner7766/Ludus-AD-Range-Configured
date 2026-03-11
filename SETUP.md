@@ -30,7 +30,6 @@ ludus ansible role add -d roles/ludus_ccdc_web_server
 ludus ansible role add -d roles/ludus_ccdc_db_server
 ludus ansible role add -d roles/ludus_ccdc_file_server
 ludus ansible role add -d roles/ludus_ccdc_mail_server
-ludus ansible role add -d roles/ludus_ccdc_dns_server
 ludus ansible role add -d roles/ludus_ccdc_ftp_server
 ludus ansible role add -d roles/ludus_ccdc_workstation
 ludus ansible role add -d roles/ludus_ubuntu_desktop
@@ -73,12 +72,11 @@ ludus range deploy -t user-defined-roles --limit <VM_NAME> --only-roles <ROLE_NA
 | `ludus_ccdc_db_server` | DB01 | Debian 12 | MariaDB/MySQL | 3306 |
 | `ludus_ccdc_file_server` | FILESVR | Windows Server 2022 | SMB Shares | 445 |
 | `ludus_ccdc_mail_server` | MAIL01 | Debian 12 | Postfix + Dovecot | 25, 110, 143 |
-| `ludus_ccdc_dns_server` | DNS01 | Windows Server 2022 | Windows DNS | 53 |
 | `ludus_ccdc_ftp_server` | FTP01 | Ubuntu 22.04 | vsftpd | 21 |
 | `ludus_ccdc_workstation` | PC01-W11 | Windows 11 | Blue team tools via Chocolatey (Wireshark, Burp Suite, Process Hacker, etc.) | — |
 | `ludus_ubuntu_desktop` | SCORE01 | Ubuntu 22.04 | XFCE4 desktop environment + LightDM | — |
 | `ludus_ccdc_scoring_engine` | SCORE01 | Ubuntu 22.04 | Flask scoring engine + SQLite + systemd | 8080 |
-| `ludus_ccdc_domain_users` | DC01-2022 | Windows Server 2022 | Creates Ludus Corp employee AD accounts (jsmith, bwilson, mchen, mlopez, rthomas) | — |
+| `ludus_ccdc_domain_users` | DC01-2022 | Windows Server 2022 | Creates Ludus Corp employee AD accounts + DNS A records + DNS vulns | 53 |
 
 ## Updating a Role
 
@@ -99,7 +97,6 @@ ludus ansible role add -d roles/ludus_ccdc_web_server
 ludus ansible role add -d roles/ludus_ccdc_db_server
 ludus ansible role add -d roles/ludus_ccdc_file_server
 ludus ansible role add -d roles/ludus_ccdc_mail_server
-ludus ansible role add -d roles/ludus_ccdc_dns_server
 ludus ansible role add -d roles/ludus_ccdc_ftp_server
 ludus ansible role add -d roles/ludus_ccdc_workstation
 ludus ansible role add -d roles/ludus_ccdc_scoring_engine
@@ -137,21 +134,21 @@ sudo systemctl restart scoring_engine
 sudo journalctl -u scoring_engine -f
 ```
 
-**Checks performed every 60 seconds** (VLAN 10 services):
+**Checks performed every 30 seconds** (VLAN 10 services):
 
 | Service | Host | Port | Check Method | Points |
 |---------|------|------|--------------|-------:|
 | HTTP — Company Portal | WEB01 (.31) | 80 | HTTP GET + content validation | 100 |
 | LDAP — Active Directory | DC01 (.11) | 389 | LDAPv3 anonymous bind | 100 |
 | Kerberos — Active Directory | DC01 (.11) | 88 | TCP connect | 100 |
-| DNS — Resolution | DNS01 (.71) | 53 | A record query for `web.ludus.domain` | 100 |
+| DNS — Resolution | DC01 (.11) | 53 | A record query for `web.ludus.domain` | 100 |
 | SMTP — Mail relay | MAIL01 (.61) | 25 | 220 banner + EHLO 250 validation | 75 |
 | MySQL — Database | DB01 (.41) | 3306 | MySQL handshake banner | 75 |
 | IMAP — Mail login (`jsmith`) | MAIL01 (.61) | 143 | IMAP LOGIN command | 50 |
 | POP3 — Mail | MAIL01 (.61) | 110 | `+OK` banner | 50 |
 | SMB — File Server | FILESVR (.51) | 445 | SMBv1/v2 negotiate | 50 |
 | FTP — Login (`mlopez`) | FTP01 (.81) | 21 | FTP authenticated login | 50 |
-| RDP — Workstation | PC01-W11 (.21) | 3389 | TCP connect | 50 |
+| RDP — Workstation | PC01-W11 (.21) | 3389 | CredSSP/NLA login (NTLMv2) | 50 |
 | **Total max per round** | | | | **800** |
 
 ## Step 5: Validate the Deployment

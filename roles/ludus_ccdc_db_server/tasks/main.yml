@@ -26,6 +26,13 @@
       local-infile = 1
       # Secure option (DISABLED): skip-show-database
       # Allows SHOW DATABASES to all users
+      # max_connect_errors: scoring engine opens a raw TCP connection, reads the
+      # handshake banner, then closes without completing the MySQL protocol.
+      # MariaDB counts each such close as a connection error. The default limit
+      # of 100 blocks that host after ~100 scoring rounds (~50 min). Setting
+      # this to a very large value prevents the host-block.
+      # Secure option (DISABLED): max_connect_errors = 10
+      max_connect_errors = 1000000
     owner: root
     group: root
     mode: "0644"

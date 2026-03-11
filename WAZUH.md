@@ -49,8 +49,7 @@ On every machine you want to monitor, you install a **Wazuh Agent** — a small 
         ├── MAIL01   (Linux agent)
         ├── DC01     (Windows agent)
         ├── PC01-W11 (Windows agent)
-        ├── FILESVR  (Windows agent)
-        └── DNS01    (Windows agent)
+        └── FILESVR  (Windows agent)
 ```
 
 ---
@@ -75,7 +74,7 @@ When picking a server VM, consider three things:
 
 **2. Existing services** — Avoid making the server a machine that is under heavy load. Running Wazuh on DB01 (which runs MariaDB) or WEB01 (which runs Apache) means both services fight for the same 4 GB of RAM.
 
-**3. Is it Linux?** — As explained above, the server must be Linux. That rules out DC01 (Windows), PC01-W11 (Windows), FILESVR (Windows), and DNS01 (Windows).
+**3. Is it Linux?** — As explained above, the server must be Linux. That rules out DC01 (Windows), PC01-W11 (Windows), and FILESVR (Windows).
 
 Here is how the Linux VMs in this range compare:
 
@@ -397,7 +396,6 @@ Use the correct name for each Windows VM:
 - `WAZUH_AGENT_NAME="DC01"` on DC01
 - `WAZUH_AGENT_NAME="PC01-W11"` on the workstation
 - `WAZUH_AGENT_NAME="FILESVR"` on the file server
-- `WAZUH_AGENT_NAME="DNS01"` on the DNS server
 
 Wait for the command to return (about 30–60 seconds). There is no progress bar — it runs silently.
 
@@ -423,7 +421,7 @@ The `Status` column should show `Running`.
 
 ### Step 3.7 — Repeat on Each Windows VM
 
-Connect to each remaining Windows VM (DC01, PC01-W11, FILESVR, DNS01) and repeat Steps 3.1–3.6.
+Connect to each remaining Windows VM (DC01, PC01-W11, FILESVR) and repeat Steps 3.1–3.6.
 
 ---
 
@@ -434,7 +432,7 @@ Open a browser and go to `https://10.X.10.81`. Log in with username `admin` and 
 ### 4.1 — Overview / Home Page
 
 The home page shows a summary of your entire environment:
-- **Total agents** — should show 7 (or however many you installed)
+- **Total agents** — should show 6 (or however many you installed)
 - **Agents by status** — green = Active (connected), red = Disconnected
 - **Recent alerts** — a live feed of the latest security events
 

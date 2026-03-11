@@ -217,6 +217,8 @@ ludus:
     testing:
       snapshot: false
       block_internet: false
+    roles:
+      - ludus_ccdc_kali_setup
 
   # ============================================================
   # KALI LINUX 2 - Secondary attacker machine (Red Team)
@@ -232,6 +234,8 @@ ludus:
     testing:
       snapshot: false
       block_internet: false
+    roles:
+      - ludus_ccdc_kali_setup
 
   # ============================================================
   # KALI LINUX 3 - Tertiary attacker machine (Red Team)
@@ -247,6 +251,8 @@ ludus:
     testing:
       snapshot: false
       block_internet: false
+    roles:
+      - ludus_ccdc_kali_setup
 
   # ============================================================
   # SCORING ENGINE (Ubuntu 22.04) - Red Team subnet

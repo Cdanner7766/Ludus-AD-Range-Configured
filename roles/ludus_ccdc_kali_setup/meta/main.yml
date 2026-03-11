@@ -1,0 +1,5 @@
+---
+galaxy_info:
+  role_name: ludus_ccdc_kali_setup
+  description: Installs kali-linux-default tools on Kali attacker VMs
+  min_ansible_version: "2.9"

@@ -35,6 +35,7 @@ ludus ansible role add -d roles/ludus_ccdc_workstation
 ludus ansible role add -d roles/ludus_ubuntu_desktop
 ludus ansible role add -d roles/ludus_ccdc_scoring_engine
 ludus ansible role add -d roles/ludus_ccdc_domain_users
+ludus ansible role add -d roles/ludus_ccdc_kali_setup
 ```
 
 Verify roles are installed:
@@ -77,6 +78,7 @@ ludus range deploy -t user-defined-roles --limit <VM_NAME> --only-roles <ROLE_NA
 | `ludus_ubuntu_desktop` | SCORE01 | Ubuntu 22.04 | XFCE4 desktop environment + LightDM | — |
 | `ludus_ccdc_scoring_engine` | SCORE01 | Ubuntu 22.04 | Flask scoring engine + SQLite + systemd | 8080 |
 | `ludus_ccdc_domain_users` | DC01-2022 | Windows Server 2022 | Creates Ludus Corp employee AD accounts + DNS A records + DNS vulns | 53 |
+| `ludus_ccdc_kali_setup` | kali-1/2/3 | Kali Linux | Installs `kali-linux-default` tool metapackage | — |
 
 ## Updating a Role
 
@@ -101,6 +103,7 @@ ludus ansible role add -d roles/ludus_ccdc_ftp_server
 ludus ansible role add -d roles/ludus_ccdc_workstation
 ludus ansible role add -d roles/ludus_ccdc_scoring_engine
 ludus ansible role add -d roles/ludus_ccdc_domain_users
+ludus ansible role add -d roles/ludus_ccdc_kali_setup
 ludus range deploy -t user-defined-roles
 ```
 

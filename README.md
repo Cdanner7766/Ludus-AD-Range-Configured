@@ -359,6 +359,7 @@ VLAN 99 - Attacker Network (10.X.99.0/24)
 | IP | `10.X.99.1` |
 | RAM / CPUs | 8 GB / 4 |
 | VLAN | 99 (Attacker Network) |
+| Tools | `kali-linux-default` (installed via `ludus_ccdc_kali_setup` role) |
 
 **Credentials:**
 
@@ -377,6 +378,7 @@ VLAN 99 - Attacker Network (10.X.99.0/24)
 | IP | `10.X.99.2` |
 | RAM / CPUs | 8 GB / 4 |
 | VLAN | 99 (Attacker Network) |
+| Tools | `kali-linux-default` (installed via `ludus_ccdc_kali_setup` role) |
 
 **Credentials:**
 
@@ -395,6 +397,7 @@ VLAN 99 - Attacker Network (10.X.99.0/24)
 | IP | `10.X.99.3` |
 | RAM / CPUs | 8 GB / 4 |
 | VLAN | 99 (Attacker Network) |
+| Tools | `kali-linux-default` (installed via `ludus_ccdc_kali_setup` role) |
 
 **Credentials:**
 

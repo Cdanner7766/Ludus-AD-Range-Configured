@@ -1,0 +1,12 @@
+---
+# tasks file for ludus_ccdc_kali_setup
+# Installs the kali-linux-default metapackage on Kali attacker VMs.
+# kali-linux-default is a large download (~2-3 GB) — this task can take
+# 15-30 minutes depending on network speed and mirrors.
+
+- name: "Install kali-linux-default tools"
+  ansible.builtin.apt:
+    name: kali-linux-default
+    state: present
+    update_cache: true
+  become: true

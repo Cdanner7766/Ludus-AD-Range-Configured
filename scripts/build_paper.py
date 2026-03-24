@@ -340,12 +340,40 @@ body(
 
 heading("Tools and Software Used")
 body(
-    "The following tools and software were used in the project: Proxmox "
-    "Virtual Environment for hosting virtual machines; Ludus Cyber Range for "
-    "automated range deployment and configuration; Ansible for writing and "
-    "running configuration roles; Python 3 with Flask for the scoring engine; "
-    "SQLite for storing scoring history; Bootstrap 5 for the dashboard front "
-    "end; and Claude Code for assistance with development and automation tasks."
+    "Proxmox Virtual Environment is the hypervisor that runs all of the "
+    "virtual machines in the range. Proxmox provides the ability to create "
+    "and manage many virtual machines on a single physical host. It also "
+    "handles the virtual networking that separates the corporate network from "
+    "the attacker network. Without Proxmox, there would be no place to run "
+    "the environment."
+)
+body(
+    "Ludus Cyber Range is the tool that sits on top of Proxmox and automates "
+    "the creation of the range. Ludus reads the YAML configuration file, "
+    "creates each virtual machine from a template, places it on the correct "
+    "virtual network, and then hands off to Ansible to finish the "
+    "configuration. Ludus is what makes it possible to deploy or rebuild the "
+    "entire environment with a single command."
+)
+body(
+    "Ansible is the tool that configures each virtual machine after it is "
+    "created. The ten Ansible roles written for this project handle everything "
+    "from setting up Active Directory to installing web server software to "
+    "configuring mail and file services. Ansible makes the configuration "
+    "repeatable because it always applies the same steps in the same order "
+    "from a set of files stored in the repository."
+)
+body(
+    "Claude Code was used throughout the project to help write and debug the "
+    "Ansible roles and the Ludus configuration file. Writing Ansible roles "
+    "for Windows Active Directory and multiple Linux services involves a large "
+    "number of tasks, module options, and edge cases. Claude Code helped "
+    "generate the initial structure for each role, suggested fixes when tasks "
+    "failed, and helped translate competition service requirements into working "
+    "Ansible tasks. It also assisted in writing the scoring engine and the "
+    "range configuration YAML. Claude Code made it possible to complete all "
+    "ten roles and get a fully functional environment deployed within the "
+    "project timeline."
 )
 
 heading("Deployment Instructions")

@@ -4,6 +4,7 @@ Regenerate CIS405_Final_Paper_Danner.docx with revised content.
 Run from the repo root: python3 scripts/build_paper.py
 """
 
+import os
 from docx import Document
 from docx.shared import Pt, Inches, Emu
 from docx.enum.text import WD_ALIGN_PARAGRAPH
@@ -205,6 +206,30 @@ body(
     "passwords, and outdated protocol settings, give the blue team a "
     "realistic set of problems to find and fix during practice."
 )
+
+# ── network diagram ───────────────────────────────────────────────────────────
+diagram_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                            "network_diagram.png")
+if os.path.exists(diagram_path):
+    p_img = doc.add_paragraph()
+    p_img.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    run_img = p_img.add_run()
+    run_img.add_picture(diagram_path, width=Inches(6.0))
+    pf_img = p_img.paragraph_format
+    pf_img.space_before = Pt(0)
+    pf_img.space_after  = Pt(0)
+    pf_img.line_spacing = DBL_SPACE
+
+    p_cap = doc.add_paragraph()
+    p_cap.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    pf_cap = p_cap.paragraph_format
+    pf_cap.space_before = Pt(0)
+    pf_cap.space_after  = Pt(0)
+    pf_cap.line_spacing = DBL_SPACE
+    run_cap = p_cap.add_run("Figure 1. CCDC Practice Range Network Diagram")
+    run_cap.italic     = True
+    run_cap.font.name  = FONT_NAME
+    run_cap.font.size  = FONT_SIZE
 
 heading("Ansible Automation")
 body(

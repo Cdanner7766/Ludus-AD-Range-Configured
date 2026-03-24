@@ -114,296 +114,162 @@ blank()
 para("Cloud Deployable Collegiate Cyber Defense Competition Practice Range",
      align=WD_ALIGN_PARAGRAPH.CENTER, bold=True)
 blank()
-para("Charles Danner",   align=WD_ALIGN_PARAGRAPH.CENTER)
+para("Charles Danner",        align=WD_ALIGN_PARAGRAPH.CENTER)
 para("CIS 405: Cloud Computing", align=WD_ALIGN_PARAGRAPH.CENTER)
-para("March 25, 2026",  align=WD_ALIGN_PARAGRAPH.CENTER)
+para("March 25, 2026",        align=WD_ALIGN_PARAGRAPH.CENTER)
 
-# page break
 doc.add_page_break()
 
-# ── PAGE 2: ABSTRACT ──────────────────────────────────────────────────────────
-
-heading("Abstract")
-body(
-    "This paper documents the design and implementation of a deployable "
-    "Collegiate Cyber Defense Competition (CCDC) practice range built on the "
-    "Ludus Cyber Range platform. The project used Ansible automation to "
-    "configure a full Windows Active Directory environment, multiple Linux "
-    "service machines, and an attacker virtual machine across two isolated "
-    "virtual networks. The main goals were to create an environment that "
-    "teams could reset and redeploy on demand, to show how automated "
-    "infrastructure tools relate to cloud computing, and to give a college "
-    "CCDC team a realistic place to practice. This paper focuses on how the "
-    "virtual environment was built, how Ansible roles made it repeatable, and "
-    "how the project connects to cloud computing concepts."
-)
-
-# page break
-doc.add_page_break()
-
-# ── PAGE 3+: BODY ─────────────────────────────────────────────────────────────
+# ── BODY ──────────────────────────────────────────────────────────────────────
 
 heading("Cloud Deployable Collegiate Cyber Defense Competition Practice Range")
 blank()
-heading("Introduction")
-body(
-    "The Collegiate Cyber Defense Competition (CCDC) is a national "
-    "competition where college teams defend a business network against "
-    "professional attackers in real time. Poor performance in the previous "
-    "year showed that the team had no way to practice in an environment that "
-    "looked like the real competition. This project set out to solve that "
-    "problem by building a deployable cyber range using Ludus, an open source "
-    "tool built on top of Proxmox that automates the creation of realistic lab "
-    "networks (Ludus, n.d.). The range gives the team a place to practice "
-    "defending services, responding to active attacks, and managing an Active "
-    "Directory environment. All of these are key skills at a real CCDC event "
-    "(Winterknight, n.d.)."
-)
 
+# ── 1 ─────────────────────────────────────────────────────────────────────────
 heading("Original Project Definition")
 body(
-    "The original goal was to create infrastructure that looked like a real "
-    "CCDC competition environment and could be deployed repeatedly to "
-    "different hosts. The five week plan was to get Ludus running on a local "
-    "Proxmox server, build a small range, expand to a medium range, add blue "
-    "and red team components, and finish with documentation. The proposal "
-    "listed Proxmox, Ludus, Ansible, and Claude Code as the primary tools. "
-    "The final deliverable was described as a full working demo and a teaching "
-    "walkthrough."
+    "The goal was to build a practice environment that looked and felt like a "
+    "real Collegiate Cyber Defense Competition (CCDC) network and could be "
+    "deployed repeatedly on demand. The five week plan covered installing "
+    "Ludus on a local Proxmox server, building a small range, expanding to a "
+    "medium range, adding blue and red team components, and finishing with "
+    "documentation. The primary tools listed in the proposal were Proxmox, "
+    "Ludus, Ansible, and Claude Code. The final deliverable was a working demo "
+    "and a teaching walkthrough (Winterknight, n.d.)."
 )
 
-heading("The Virtual Environment")
+# ── 2 ─────────────────────────────────────────────────────────────────────────
+heading("Changes Made During the Project")
 body(
-    "The range consists of nine virtual machines spread across two virtual "
-    "networks. The first network is the corporate network, which runs on "
-    "VLAN 10. It holds seven machines: a Windows Server 2022 domain "
-    "controller, a Windows 11 workstation, a web server running Apache and "
-    "PHP, a database server running MariaDB, a file server with shared "
-    "folders over SMB, a mail server running Postfix and Dovecot, and an FTP "
-    "server running vsftpd. The second network is the attacker network, which "
-    "runs on VLAN 99. It holds two machines: a Kali Linux attacker workstation "
-    "and a machine that runs the scoring engine."
-)
-body(
-    "The two networks are separated by firewall rules managed by Ludus at "
-    "the hypervisor level. Machines on the corporate network can only reach "
-    "the attacker network on ports 80, 443, and 8080. Machines on the "
-    "attacker network can reach all ports on the corporate network. This "
-    "setup mirrors the network segmentation used at real CCDC events."
-)
-body(
-    "Each virtual machine runs a specific set of services. The domain "
-    "controller handles Active Directory, DNS, Kerberos, and LDAP. The web "
-    "server runs a company intranet portal written in PHP. The database "
-    "server stores employee records. The file server provides shared folders. "
-    "The mail server handles incoming and outgoing email. The FTP server "
-    "provides file transfer access. All of these services are the kind that "
-    "blue teams are expected to defend at a real CCDC event."
-)
-body(
-    "The environment also includes intentional security weaknesses on every "
-    "service machine. These weaknesses, such as disabled firewalls, weak "
-    "passwords, and outdated protocol settings, give the blue team a "
-    "realistic set of problems to find and fix during practice."
+    "The project was completed on schedule but the scope grew beyond the "
+    "original proposal. The most significant addition was a custom scoring "
+    "engine, which was not planned at the start. At a real CCDC competition, "
+    "an automated system checks whether services are still running and awards "
+    "points for uptime (Sshell, 2025). Adding one to the practice range made "
+    "training much more realistic. A referee toggle was also added to the "
+    "scoring dashboard to hide IP addresses and check details from the blue "
+    "team during sessions, which reflects how real competitions work. The "
+    "range stayed on local Proxmox hardware rather than being moved to a "
+    "cloud provider, since local hardware was faster and more practical for "
+    "development."
 )
 
-# ── network diagram ───────────────────────────────────────────────────────────
-diagram_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                            "network_diagram.png")
-if os.path.exists(diagram_path):
-    p_img = doc.add_paragraph()
-    p_img.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    run_img = p_img.add_run()
-    run_img.add_picture(diagram_path, width=Inches(6.0))
-    pf_img = p_img.paragraph_format
-    pf_img.space_before = Pt(0)
-    pf_img.space_after  = Pt(0)
-    pf_img.line_spacing = DBL_SPACE
-
-    p_cap = doc.add_paragraph()
-    p_cap.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    pf_cap = p_cap.paragraph_format
-    pf_cap.space_before = Pt(0)
-    pf_cap.space_after  = Pt(0)
-    pf_cap.line_spacing = DBL_SPACE
-    run_cap = p_cap.add_run("Figure 1. CCDC Practice Range Network Diagram")
-    run_cap.italic     = True
-    run_cap.font.name  = FONT_NAME
-    run_cap.font.size  = FONT_SIZE
-
-heading("Ansible Automation")
+# ── 3 ─────────────────────────────────────────────────────────────────────────
+heading("Final Scope")
 body(
-    "Ansible is a tool that configures computers automatically by running a "
-    "list of tasks. Ludus uses Ansible to set up each virtual machine after "
-    "it is created from a template. For this project, ten custom Ansible "
-    "roles were written, and each role handles one part of the environment. "
-    "The roles cover the domain controller users and DNS settings, the web "
-    "server, the database server, the file server, the mail server, the FTP "
-    "server, the Windows workstation software, the Ubuntu desktop environment, "
-    "the scoring engine, and the Kali Linux tools."
-)
-body(
-    "Each role is a folder that contains a list of tasks, default variable "
-    "values, and any template files the role needs. When a range is deployed, "
-    "Ludus runs the matching role on each virtual machine. The role installs "
-    "packages, writes configuration files, creates user accounts, and sets "
-    "permissions. Because every step is written as code, the configuration is "
-    "consistent every time. There is no manual clicking or typing on each "
-    "machine."
-)
-body(
-    "Ansible roles also make it easy to change one part of the environment "
-    "without touching the rest. If the web server role needs to be updated, "
-    "only that role is applied again to the web server virtual machine. The "
-    "rest of the environment stays the same. This is done with a single "
-    "command that tells Ludus to run only the specified role on the specified "
-    "machine."
+    "By the end of the project the following was completed: Ludus installed "
+    "and running on a local Proxmox host; a Windows Active Directory domain "
+    "with a domain controller and a Windows 11 workstation; five Linux "
+    "service machines running web, database, file sharing, mail, and FTP "
+    "services; a Kali Linux attacker machine loaded with a full penetration "
+    "testing toolset; a custom Python based scoring engine that checks eleven "
+    "services every thirty seconds; a live web dashboard showing service "
+    "status and uptime history; and a referee toggle to hide diagnostic "
+    "details from blue team players. All nine virtual machines are spread "
+    "across two isolated networks and configured entirely through Ansible "
+    "roles stored in the project repository (Western Regional CCDC, n.d.)."
 )
 
-heading("Redeployability")
+# ── 4 ─────────────────────────────────────────────────────────────────────────
+heading("Key Decisions and Why")
 body(
-    "One of the most important design goals was that the entire environment "
-    "could be destroyed and rebuilt from scratch with a single command. This "
-    "matters for CCDC practice because teams get the most value from starting "
-    "over in a clean state. Each practice session should begin with a known "
-    "configuration, not one left in an unknown state from the last session."
+    "The most important decision was to use Ansible roles for all "
+    "configuration rather than setting up machines by hand. Without Ansible, "
+    "rebuilding the range would require manually touching each of the nine "
+    "virtual machines every time, which would take hours and produce "
+    "inconsistent results. Ansible makes the environment fully repeatable and "
+    "allows a complete rebuild from scratch with a single command."
 )
 body(
-    "Ludus handles this by keeping all range configuration in a single YAML "
-    "file. This file lists every virtual machine, its network settings, its "
-    "template, and which Ansible roles to run on it. To rebuild the "
-    "environment, a user runs one command. Ludus creates all the machines "
-    "from their templates, assigns them to the correct networks, and runs the "
-    "Ansible roles to configure them. The whole process requires no manual "
-    "steps."
-)
-body(
-    "Because the configuration is stored in a text file, it can be saved in "
-    "a version control system like Git. This means that changes to the "
-    "environment are tracked over time. If a change breaks something, the "
-    "file can be reverted and the environment can be rebuilt from the last "
-    "working version. The Ansible roles are also stored in the same "
-    "repository, so the entire environment is defined by code that lives in "
-    "one place."
-)
-body(
-    "This pattern of defining infrastructure as code and rebuilding it on "
-    "demand is a core idea in cloud computing. In a real cloud environment, "
-    "teams use tools like Terraform or CloudFormation to write infrastructure "
-    "as code. Ludus and Ansible serve the same purpose for a local virtualized "
-    "environment."
+    "The choice to use Ludus as the base platform was equally important. "
+    "Ludus handles creating virtual machines from templates, placing them on "
+    "the correct virtual networks, and calling the Ansible roles automatically. "
+    "Without Ludus, all of that provisioning logic would have needed to be "
+    "built from scratch. Running a full system upgrade before installing tools "
+    "on the Kali Linux machine was a decision made after package dependency "
+    "errors blocked installation. Upgrading the system first resolved all "
+    "conflicts reliably."
 )
 
-heading("Connection to Cloud Computing")
-body(
-    "This project connects to cloud computing in several ways. The most "
-    "direct connection is the idea of infrastructure as code. In cloud "
-    "computing, a team does not log in to a server and configure it by hand. "
-    "Instead, they write code that describes what the infrastructure should "
-    "look like, and a tool builds it automatically. This project follows the "
-    "same pattern. The virtual machines, the network configuration, and the "
-    "software on each machine are all described in files. Ludus and Ansible "
-    "read those files and build the environment."
-)
-body(
-    "Ludus is also designed to support deployment to a real cloud provider. "
-    "The Proxmox host used for this project was a local machine, but Proxmox "
-    "can run in a data center or on a cloud instance. A team could move the "
-    "entire range to a cloud hosted server with minimal changes. The same YAML "
-    "configuration file and the same Ansible roles would work on any Ludus "
-    "host, whether it is local or in the cloud."
-)
-body(
-    "Virtual networks in this project use VLANs to separate traffic between "
-    "machines. This is similar to how cloud providers use virtual private "
-    "clouds to separate networks. The firewall rules in the Ludus "
-    "configuration file define what traffic is allowed between networks, which "
-    "is the same concept as security groups or network access control lists in "
-    "cloud environments."
-)
-body(
-    "Finally, the idea of using templates for virtual machines is similar to "
-    "using machine images in the cloud. In cloud computing, a team creates a "
-    "machine image with the base operating system installed and then deploys "
-    "instances from that image. In Ludus, pre built templates serve the same "
-    "role. Each virtual machine starts from a clean template and Ansible "
-    "configures it from there."
-)
-
-heading("The Scoring Engine")
-body(
-    "A scoring engine was added to the range to make practice sessions more "
-    "realistic. At a real CCDC competition, an automated system checks whether "
-    "services are running and awards points for uptime (Sshell, 2025). The "
-    "scoring engine in this project does the same thing. It checks eleven "
-    "services every thirty seconds and displays the results on a web "
-    "dashboard. The engine was written in Python using the Flask framework and "
-    "runs as a system service on the scoring machine. A referee toggle was "
-    "added to hide IP addresses and check details from the blue team during "
-    "practice."
-)
-
-heading("Key Decisions")
-body(
-    "The most important decision was to configure everything with Ansible "
-    "roles rather than setting up machines by hand. This is what makes the "
-    "environment repeatable. Without Ansible, rebuilding the range would "
-    "require manually configuring each of the nine machines, which would take "
-    "hours and would likely produce a different result each time."
-)
-body(
-    "The choice to use Ludus as the base platform was also significant. Ludus "
-    "handles all of the work of creating virtual machines from templates and "
-    "assigning them to virtual networks. Without Ludus, this project would "
-    "have required building a custom provisioning system from scratch."
-)
-body(
-    "Running a full system upgrade before installing tools on the Kali Linux "
-    "machine was a decision made after dependency errors blocked the tool "
-    "installation. Upgrading first resolved the conflicts reliably."
-)
-
+# ── 5 ─────────────────────────────────────────────────────────────────────────
 heading("Tools and Software Used")
 body(
     "Proxmox Virtual Environment is the hypervisor that runs all of the "
-    "virtual machines in the range. Proxmox provides the ability to create "
-    "and manage many virtual machines on a single physical host. It also "
-    "handles the virtual networking that separates the corporate network from "
-    "the attacker network. Without Proxmox, there would be no place to run "
-    "the environment."
+    "virtual machines in the range. It handles creating and managing VMs and "
+    "provides the virtual networking that keeps the corporate network and the "
+    "attacker network separated."
 )
 body(
-    "Ludus Cyber Range is the tool that sits on top of Proxmox and automates "
-    "the creation of the range. Ludus reads the YAML configuration file, "
-    "creates each virtual machine from a template, places it on the correct "
-    "virtual network, and then hands off to Ansible to finish the "
-    "configuration. Ludus is what makes it possible to deploy or rebuild the "
-    "entire environment with a single command."
+    "Ludus Cyber Range sits on top of Proxmox and automates range creation. "
+    "Ludus reads the YAML configuration file, creates each machine from a "
+    "template, places it on the correct network, and hands off to Ansible to "
+    "finish configuration. Ludus is what makes a single command rebuild "
+    "possible (Ludus, n.d.)."
 )
 body(
-    "Ansible is the tool that configures each virtual machine after it is "
-    "created. The ten Ansible roles written for this project handle everything "
-    "from setting up Active Directory to installing web server software to "
-    "configuring mail and file services. Ansible makes the configuration "
-    "repeatable because it always applies the same steps in the same order "
-    "from a set of files stored in the repository."
+    "Ansible configures each virtual machine after it is created. The ten "
+    "Ansible roles written for this project cover every machine in the range, "
+    "from the domain controller to the FTP server. Ansible makes the "
+    "configuration repeatable because it always runs the same steps in the "
+    "same order from files stored in the repository."
 )
 body(
-    "Claude Code was used throughout the project to help write and debug the "
-    "Ansible roles and the Ludus configuration file. Writing Ansible roles "
-    "for Windows Active Directory and multiple Linux services involves a large "
-    "number of tasks, module options, and edge cases. Claude Code helped "
-    "generate the initial structure for each role, suggested fixes when tasks "
-    "failed, and helped translate competition service requirements into working "
-    "Ansible tasks. It also assisted in writing the scoring engine and the "
-    "range configuration YAML. Claude Code made it possible to complete all "
-    "ten roles and get a fully functional environment deployed within the "
-    "project timeline."
+    "Claude Code was used to write and debug the Ansible roles and the Ludus "
+    "configuration file. Writing roles for Windows Active Directory and "
+    "multiple Linux services involves many tasks, module options, and edge "
+    "cases. Claude Code generated role structure, suggested fixes when tasks "
+    "failed, and translated competition service requirements into working "
+    "Ansible code. It made completing all ten roles within the project "
+    "timeline possible."
 )
 
-heading("Deployment Instructions")
+# ── 6 ─────────────────────────────────────────────────────────────────────────
+heading("Diagrams")
+body(
+    "Figure 1 below shows the full network layout of the range. It includes "
+    "the Debian router that connects the WAN, VLAN 10, and VLAN 99, along "
+    "with each virtual machine labeled with its IP address, operating system, "
+    "purpose, and key ports."
+)
 
-# Build this paragraph manually so we can embed hyperlinks
+diagram_path = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+    "network_diagram.png"
+)
+if os.path.exists(diagram_path):
+    p_img = doc.add_paragraph()
+    p_img.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p_img.paragraph_format.space_before = Pt(0)
+    p_img.paragraph_format.space_after  = Pt(0)
+    p_img.paragraph_format.line_spacing = DBL_SPACE
+    p_img.add_run().add_picture(diagram_path, width=Inches(6.0))
+
+    p_cap = doc.add_paragraph()
+    p_cap.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p_cap.paragraph_format.space_before = Pt(0)
+    p_cap.paragraph_format.space_after  = Pt(0)
+    p_cap.paragraph_format.line_spacing = DBL_SPACE
+    cap_run = p_cap.add_run("Figure 1. CCDC Practice Range Network Diagram")
+    cap_run.italic     = True
+    cap_run.font.name  = FONT_NAME
+    cap_run.font.size  = FONT_SIZE
+
+# ── 7 ─────────────────────────────────────────────────────────────────────────
+heading("Code and Configuration Steps")
+body(
+    "All configuration files live in the project repository. The main range "
+    "configuration file defines every virtual machine, its VLAN, its IP "
+    "address, and which Ansible roles to run on it. The ten Ansible roles are "
+    "in the roles folder, one subfolder per machine. Each role subfolder "
+    "contains a tasks file with the configuration steps, a defaults file with "
+    "variable defaults, and a templates folder with config files for services "
+    "like Apache, Postfix, and the scoring engine. No configuration is done "
+    "by hand; every setting is driven by these files."
+)
+
+# ── 8 ─────────────────────────────────────────────────────────────────────────
+heading("Installation and Deployment Instructions")
+
 p = doc.add_paragraph()
 pf = p.paragraph_format
 pf.alignment         = WD_ALIGN_PARAGRAPH.LEFT
@@ -419,28 +285,20 @@ def r(paragraph, text, bold=False):
     run.font.size = FONT_SIZE
     return run
 
-r(p,
-  "Full configuration files are available in the project repository. For "
-  "teams that do not have Proxmox set up, the Ludus documentation provides "
-  "a quick start guide at ")
+r(p, "For teams setting up Proxmox and Ludus for the first time, the Ludus "
+     "quick start guide is at ")
 add_hyperlink(p, "https://docs.ludus.cloud/docs/quick-start/",
               "https://docs.ludus.cloud/docs/quick-start/")
-r(p,
-  ". For step by step instructions on how to deploy this specific range, see "
-  "the deployment guide in this repository at ")
+r(p, ". For step by step instructions specific to this range, see ")
 add_hyperlink(p,
               "https://github.com/Cdanner7766/Ludus-AD-Range-Configured/blob/main/SETUP.md",
               "SETUP.md")
-r(p,
-  ". At a high level, the steps are: install Ludus on a Proxmox host "
-  "following the official documentation (Ludus, n.d.); clone the range "
-  "repository; register the Ansible roles with Ludus; run the range deploy "
-  "command with the provided configuration file; and allow Ansible to "
-  "configure the virtual machines automatically. The scoring engine starts "
-  "as a system service on the scoring machine and is reachable on port 8080 "
-  "from a web browser. CCDC images from previous competitions were used as a "
-  "reference for what services and configurations the range should replicate "
-  "(Western Regional CCDC, n.d.).")
+r(p, " in this repository. At a high level: install Ludus on a Proxmox host "
+     "(Ludus, n.d.); clone this repository; register the Ansible roles with "
+     "Ludus; run the range deploy command with the provided configuration "
+     "file; and let Ansible configure the machines automatically. The scoring "
+     "engine starts as a system service on its own and is reachable on "
+     "port 8080 from a web browser.")
 
 # ── REFERENCES ────────────────────────────────────────────────────────────────
 

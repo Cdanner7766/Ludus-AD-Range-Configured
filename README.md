@@ -2,10 +2,12 @@
 
 ## Overview
 
-This Ludus range deploys a full Active Directory environment with 11 virtual machines across 2 VLANs, designed for CCDC (Collegiate Cyber Defense Competition) practice. The environment contains intentional vulnerabilities across all service VMs that blue teams must identify and remediate while maintaining service availability.
+This Ludus range deploys a full Active Directory environment with 9 virtual machines across 2 VLANs, designed for CCDC (Collegiate Cyber Defense Competition) practice. The environment contains intentional vulnerabilities across all service VMs that blue teams must identify and remediate while maintaining service availability.
 
 **Domain:** `ludus.domain`
 **Network:** `10.{RANGE_ID}.0.0/16` (VLAN determines third octet)
+
+> See [NETWORK.md](NETWORK.md) for the full network diagram, IP address table, and port reference.
 
 ---
 
@@ -23,8 +25,6 @@ VLAN 10 - Corporate Network (10.X.10.0/24)
 
 VLAN 99 - Attacker Network (10.X.99.0/24)
 ├── kali-1       (.1)   - Kali Linux (Red Team)
-├── kali-2       (.2)   - Kali Linux (Red Team)
-├── kali-3       (.3)   - Kali Linux (Red Team)
 └── SCORE01      (.10)  - Scoring Engine (Ubuntu 22.04 + XFCE)
 ```
 
@@ -120,10 +120,10 @@ VLAN 99 - Attacker Network (10.X.99.0/24)
 | Property | Value |
 |----------|-------|
 | Hostname | `{RANGE_ID}-WEB01` |
-| OS | Ubuntu 24.04 Desktop |
+| OS | Ubuntu 22.04 Server (XFCE4 desktop installed by role) |
 | IP | `10.X.10.31` |
 | RAM / CPUs | 4 GB / 2 |
-| Service | Apache 2 + PHP 8.3 |
+| Service | Apache 2 + PHP 8.1 |
 | Ports | 80/tcp (HTTP) |
 | Web App | Company intranet portal — login, dashboard, employee directory |
 
@@ -145,9 +145,9 @@ VLAN 99 - Attacker Network (10.X.99.0/24)
 | 3 | **Apache version disclosure** | `ServerTokens Full` exposes full Apache version in headers | `/etc/apache2/conf-available/security.conf` |
 | 4 | **Server signature enabled** | `ServerSignature On` shows Apache version on error pages | `/etc/apache2/conf-available/security.conf` |
 | 5 | **HTTP TRACE enabled** | `TraceEnable On` allows cross-site tracing attacks | `/etc/apache2/conf-available/security.conf` |
-| 6 | **PHP display_errors On** | Verbose PHP errors shown to users, leaking paths and code | `/etc/php/8.3/apache2/conf.d/99-insecure.ini` |
-| 7 | **PHP expose_php On** | `X-Powered-By` header reveals PHP version | `/etc/php/8.3/apache2/conf.d/99-insecure.ini` |
-| 8 | **PHP allow_url_include On** | Enables remote file inclusion (RFI) attacks | `/etc/php/8.3/apache2/conf.d/99-insecure.ini` |
+| 6 | **PHP display_errors On** | Verbose PHP errors shown to users, leaking paths and code | `/etc/php/8.1/apache2/conf.d/99-insecure.ini` |
+| 7 | **PHP expose_php On** | `X-Powered-By` header reveals PHP version | `/etc/php/8.1/apache2/conf.d/99-insecure.ini` |
+| 8 | **PHP allow_url_include On** | Enables remote file inclusion (RFI) attacks | `/etc/php/8.1/apache2/conf.d/99-insecure.ini` |
 | 9 | **phpinfo() page exposed** | `/info.php` exposes full server configuration | `/var/www/html/info.php` |
 | 10 | **World-writable document root** | `chmod 777` on `/var/www/html` — any user can modify web content | Directory permissions |
 | 11 | **Weak local accounts** | `admin:admin`, `webadmin:password`, `root:toor` | `/etc/passwd`, `/etc/shadow` |
@@ -350,12 +350,12 @@ VLAN 99 - Attacker Network (10.X.99.0/24)
 
 ---
 
-### 8. Kali Linux 1 (Red Team)
+### 8. Kali Linux (Red Team)
 
 | Property | Value |
 |----------|-------|
 | Hostname | `{RANGE_ID}-kali-1` |
-| OS | Kali Linux |
+| OS | Kali Linux (Desktop) |
 | IP | `10.X.99.1` |
 | RAM / CPUs | 8 GB / 4 |
 | VLAN | 99 (Attacker Network) |
@@ -369,45 +369,7 @@ VLAN 99 - Attacker Network (10.X.99.0/24)
 
 ---
 
-### 9. Kali Linux 2 (Red Team)
-
-| Property | Value |
-|----------|-------|
-| Hostname | `{RANGE_ID}-kali-2` |
-| OS | Kali Linux |
-| IP | `10.X.99.2` |
-| RAM / CPUs | 8 GB / 4 |
-| VLAN | 99 (Attacker Network) |
-| Tools | `kali-linux-default` (installed via `ludus_ccdc_kali_setup` role) |
-
-**Credentials:**
-
-| Account | Username | Password |
-|---------|----------|----------|
-| Default user | `kali` | `kali` |
-
----
-
-### 10. Kali Linux 3 (Red Team)
-
-| Property | Value |
-|----------|-------|
-| Hostname | `{RANGE_ID}-kali-3` |
-| OS | Kali Linux |
-| IP | `10.X.99.3` |
-| RAM / CPUs | 8 GB / 4 |
-| VLAN | 99 (Attacker Network) |
-| Tools | `kali-linux-default` (installed via `ludus_ccdc_kali_setup` role) |
-
-**Credentials:**
-
-| Account | Username | Password |
-|---------|----------|----------|
-| Default user | `kali` | `kali` |
-
----
-
-### 11. Scoring Engine (SCORE01)
+### 9. Scoring Engine (SCORE01)
 
 | Property | Value |
 |----------|-------|
@@ -430,7 +392,7 @@ VLAN 99 - Attacker Network (10.X.99.0/24)
 Deployed by the `ludus_ccdc_scoring_engine` Ansible role. Runs as a Python Flask application under the `scoring` system user, managed by systemd (`scoring_engine.service`). Results are stored in SQLite at `/opt/scoring_engine/scoring.db`.
 
 - Polls all **11 services** every **30 seconds**
-- Scores each check pass/fail with point values ranging from 25–100 pts
+- Scores each check pass/fail with point values ranging from 50–100 pts
 - Auto-detects the range ID from the scoring machine's `10.X.99.Y` IP
 - Live dashboard available at **`http://10.X.99.10:8080/`** from VLAN 10 machines (port 8080 is permitted through the firewall)
 

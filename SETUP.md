@@ -69,7 +69,7 @@ ludus range deploy -t user-defined-roles --limit <VM_NAME> --only-roles <ROLE_NA
 
 | Role | VM | OS | Service | Ports |
 |------|----|----|---------|-------|
-| `ludus_ccdc_web_server` | WEB01 | Ubuntu 22.04 | Apache + PHP + Company Portal | 80, 443 |
+| `ludus_ccdc_web_server` | WEB01 | Ubuntu 22.04 Server | Apache + PHP 8.1 + Company Portal | 80/tcp |
 | `ludus_ccdc_db_server` | DB01 | Debian 12 | MariaDB/MySQL | 3306 |
 | `ludus_ccdc_file_server` | FILESVR | Windows Server 2022 | SMB Shares | 445 |
 | `ludus_ccdc_mail_server` | MAIL01 | Debian 12 | Postfix + Dovecot | 25, 110, 143 |
@@ -78,7 +78,7 @@ ludus range deploy -t user-defined-roles --limit <VM_NAME> --only-roles <ROLE_NA
 | `ludus_ubuntu_desktop` | SCORE01 | Ubuntu 22.04 | XFCE4 desktop environment + LightDM | — |
 | `ludus_ccdc_scoring_engine` | SCORE01 | Ubuntu 22.04 | Flask scoring engine + SQLite + systemd | 8080 |
 | `ludus_ccdc_domain_users` | DC01-2022 | Windows Server 2022 | Creates Ludus Corp employee AD accounts + DNS A records + DNS vulns | 53 |
-| `ludus_ccdc_kali_setup` | kali-1/2/3 | Kali Linux | Installs `kali-linux-default` tool metapackage | — |
+| `ludus_ccdc_kali_setup` | kali-1 | Kali Linux | Installs `kali-linux-default` tool metapackage | — |
 
 ## Updating a Role
 
@@ -101,6 +101,7 @@ ludus ansible role add -d roles/ludus_ccdc_file_server
 ludus ansible role add -d roles/ludus_ccdc_mail_server
 ludus ansible role add -d roles/ludus_ccdc_ftp_server
 ludus ansible role add -d roles/ludus_ccdc_workstation
+ludus ansible role add -d roles/ludus_ubuntu_desktop
 ludus ansible role add -d roles/ludus_ccdc_scoring_engine
 ludus ansible role add -d roles/ludus_ccdc_domain_users
 ludus ansible role add -d roles/ludus_ccdc_kali_setup
@@ -113,10 +114,10 @@ The web server role has one configurable variable for the PHP ini path (defaults
 
 ```yaml
 role_vars:
-  ludus_ccdc_web_server_php_ini_path: /etc/php/8.3/apache2/conf.d/99-insecure.ini
+  ludus_ccdc_web_server_php_ini_path: /etc/php/8.1/apache2/conf.d/99-insecure.ini
 ```
 
-If your Ubuntu template has a different PHP version, override this in the VM's `role_vars` in `range-config.yaml`.
+The range config currently sets **PHP 8.1** (the path is set in `range-config.yaml` under `role_vars`). The role default is PHP 8.3 — if your Ubuntu template ships with a different version, update the path accordingly.
 
 ## Scoring Engine Role
 
@@ -169,7 +170,7 @@ chmod +x ~/test_range.sh
 ```
 
 The script auto-detects your range network and tests:
-- Network connectivity (ping) to all 8 VMs
+- Network connectivity (ping) to all 7 VLAN-10 VMs
 - Web server: HTTP 200, company portal login page, phpinfo, server headers
 - Database: Port 3306, weak credential login, sample data
 - File server: SMB ports, anonymous share listing, file read

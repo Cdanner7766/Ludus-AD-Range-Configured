@@ -96,6 +96,9 @@
 
     code { color: #79c0ff; font-size: .82rem; }
 
+    /* Sensitive-info toggle */
+    .det-hidden { display: none !important; }
+
     .checking-pulse {
       animation: pulse 1s infinite;
     }
@@ -113,7 +116,7 @@
     <div>
       <span class="fw-bold fs-5">&#x1F6E1; CCDC Blue Team Scoring Engine</span>
       <span class="ms-3 badge" style="background:#21262d; color:#8b949e;">
-        Range {{ range_id }} &nbsp;|&nbsp; {{ base_net }}.0/24
+        Range {{ range_id }}<span class="det-sensitive">&nbsp;|&nbsp; {{ base_net }}.0/24</span>
       </span>
     </div>
     <div class="d-flex align-items-center gap-3">
@@ -135,6 +138,7 @@
         </small>
       </div>
       <button class="btn btn-sm btn-outline-secondary" onclick="location.reload()">&#x21BB; Refresh</button>
+      <button id="det-toggle-btn" class="btn btn-sm btn-outline-warning" onclick="toggleDetails()">&#x1F512; Hide Details</button>
       <button class="btn btn-sm btn-outline-danger" onclick="clearHistory()">&#x1F5D1; Clear History</button>
     </div>
   </div>
@@ -203,12 +207,12 @@
           <tr>
             <th class="px-3">Machine</th>
             <th>Service</th>
-            <th>Target</th>
+            <th class="det-sensitive">Target</th>
             <th>Status</th>
             <th class="text-end">Checks Up</th>
             <th class="text-end">Total Checks</th>
             <th style="min-width:130px;">Uptime</th>
-            <th style="min-width:260px;">Last Check Message</th>
+            <th class="det-sensitive" style="min-width:260px;">Last Check Message</th>
             <th style="width:42px;"></th>
           </tr>
         </thead>
@@ -219,7 +223,7 @@
               {{ svc.machine }}
             </td>
             <td style="font-size:.85rem; color:#c9d1d9;">{{ svc.name }}</td>
-            <td><code>{{ svc.host }}:{{ svc.port }}</code></td>
+            <td class="det-sensitive"><code>{{ svc.host }}:{{ svc.port }}</code></td>
             <td>
               {% if svc.up is none %}
                 <span class="badge badge-pending rounded-pill">PENDING</span>
@@ -242,7 +246,7 @@
                 <small style="color:#8b949e; white-space:nowrap;">{{ svc.uptime_pct }}%</small>
               </div>
             </td>
-            <td style="font-size:.78rem; color:#8b949e; max-width:260px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"
+            <td class="det-sensitive" style="font-size:.78rem; color:#8b949e; max-width:260px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"
                 title="{{ svc.message }}">
               {{ svc.message }}
             </td>
@@ -331,6 +335,33 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 
 <script>
+// ── Sensitive-info toggle ─────────────────────────────────────────────────
+function applyDetailsState(hidden) {
+  document.querySelectorAll('.det-sensitive').forEach(function(el) {
+    el.classList.toggle('det-hidden', hidden);
+  });
+  const btn = document.getElementById('det-toggle-btn');
+  if (hidden) {
+    btn.textContent = '\uD83D\uDD13 Show Details';
+    btn.classList.replace('btn-outline-warning', 'btn-outline-success');
+  } else {
+    btn.textContent = '\uD83D\uDD12 Hide Details';
+    btn.classList.replace('btn-outline-success', 'btn-outline-warning');
+  }
+}
+
+function toggleDetails() {
+  const hidden = localStorage.getItem('detailsHidden') === 'true';
+  const next = !hidden;
+  localStorage.setItem('detailsHidden', next);
+  applyDetailsState(next);
+}
+
+// Apply saved state on load
+(function() {
+  applyDetailsState(localStorage.getItem('detailsHidden') === 'true');
+})();
+
 // ── Local countdown update ────────────────────────────────────────────────
 setInterval(function () {
   const el = document.getElementById('countdown');

@@ -128,30 +128,34 @@ blank()
 # ── 1 ─────────────────────────────────────────────────────────────────────────
 heading("Original Project Definition")
 body(
-    "The goal was to build a practice environment that looked and felt like a "
-    "real Collegiate Cyber Defense Competition (CCDC) network and could be "
-    "deployed repeatedly on demand. The five week plan covered installing "
-    "Ludus on a local Proxmox server, building a small range, expanding to a "
-    "medium range, adding blue and red team components, and finishing with "
-    "documentation. The primary tools listed in the proposal were Proxmox, "
-    "Ludus, Ansible, and Claude Code. The final deliverable was a working demo "
-    "and a teaching walkthrough (Winterknight, n.d.)."
+    "The project began as an attempt to manually build a Collegiate Cyber "
+    "Defense Competition (CCDC) practice environment. The initial plan was to "
+    "create and configure virtual machines by hand, run scripts to introduce "
+    "security vulnerabilities, and take snapshots so the environment could be "
+    "reset between practice sessions. When copies of virtual machines from "
+    "previous CCDC competitions were found online, those were tested as a "
+    "shortcut (Western Regional CCDC, n.d.). However, none of them came with "
+    "documentation, the virtual hardware had to be reconfigured manually for "
+    "each machine, and the router's network address translation could not be "
+    "made to work correctly. A CCDC environment designer recommended Ludus as "
+    "a better approach. From that point the project shifted to building a "
+    "fully automated range using Proxmox, Ludus, Ansible, and Claude Code."
 )
 
 # ── 2 ─────────────────────────────────────────────────────────────────────────
 heading("Changes Made During the Project")
 body(
-    "The project was completed on schedule but the scope grew beyond the "
-    "original proposal. The most significant addition was a custom scoring "
-    "engine, which was not planned at the start. At a real CCDC competition, "
-    "an automated system checks whether services are still running and awards "
-    "points for uptime (Sshell, 2025). Adding one to the practice range made "
-    "training much more realistic. A referee toggle was also added to the "
-    "scoring dashboard to hide IP addresses and check details from the blue "
-    "team during sessions, which reflects how real competitions work. The "
-    "range stayed on local Proxmox hardware rather than being moved to a "
-    "cloud provider, since local hardware was faster and more practical for "
-    "development."
+    "Following the Ludus tutorials and writing configuration files and Ansible "
+    "roles by hand proved to be extremely slow and had a steep learning curve. "
+    "After initial progress stalled, the workflow shifted to using Claude Code "
+    "to generate the range configuration and Ansible roles. This change made "
+    "it possible to produce a working environment far more quickly. The scope "
+    "also grew beyond the original proposal. A custom scoring engine was added "
+    "because real CCDC competitions use an automated system that checks whether "
+    "services are still running and awards points for uptime (Sshell, 2025). "
+    "A referee toggle was added to the scoring dashboard to hide diagnostic "
+    "details from the blue team during practice, which mirrors how real "
+    "competitions work."
 )
 
 # ── 3 ─────────────────────────────────────────────────────────────────────────
@@ -167,60 +171,73 @@ body(
     "status and uptime history; and a referee toggle to hide diagnostic "
     "details from blue team players. All nine virtual machines are spread "
     "across two isolated networks and configured entirely through Ansible "
-    "roles stored in the project repository (Western Regional CCDC, n.d.)."
+    "roles. Because Ludus supports deployment to any compatible host, this "
+    "same environment can be redeployed to Azure, bare metal servers, Google "
+    "Cloud Platform, Hyper V, Proxmox, and VMware Fusion without changes to "
+    "the configuration."
 )
 
 # ── 4 ─────────────────────────────────────────────────────────────────────────
 heading("Key Decisions and Why")
 body(
-    "The most important decision was to use Ansible roles for all "
-    "configuration rather than setting up machines by hand. Without Ansible, "
-    "rebuilding the range would require manually touching each of the nine "
-    "virtual machines every time, which would take hours and produce "
-    "inconsistent results. Ansible makes the environment fully repeatable and "
-    "allows a complete rebuild from scratch with a single command."
+    "The most important early decision was to stop building the environment by "
+    "hand and adopt Ludus as the base platform. The manual approach required "
+    "configuring every virtual machine individually, managing templates and "
+    "snapshots without automation, and debugging networking problems that had "
+    "no clear solution. Ludus replaced all of that with a single configuration "
+    "file and automated provisioning. This is the same infrastructure as code "
+    "model that cloud platforms like Azure and Google Cloud use. Describing "
+    "the entire environment in a file and letting a tool build it "
+    "automatically is what makes the range portable across platforms."
 )
 body(
-    "The choice to use Ludus as the base platform was equally important. "
-    "Ludus handles creating virtual machines from templates, placing them on "
-    "the correct virtual networks, and calling the Ansible roles automatically. "
-    "Without Ludus, all of that provisioning logic would have needed to be "
-    "built from scratch. Running a full system upgrade before installing tools "
-    "on the Kali Linux machine was a decision made after package dependency "
-    "errors blocked installation. Upgrading the system first resolved all "
-    "conflicts reliably."
+    "The decision to use Claude Code rather than write Ansible roles manually "
+    "was equally important. Manual role writing stalled progress because of "
+    "the large number of tasks needed to configure Active Directory, Linux "
+    "services, and network settings correctly. Claude Code generated working "
+    "role structure quickly, suggested fixes when tasks failed, and made it "
+    "possible to finish all ten roles on schedule. Running a full system "
+    "upgrade before installing tools on the Kali Linux machine was a smaller "
+    "but necessary decision made after package dependency errors blocked "
+    "installation."
 )
 
 # ── 5 ─────────────────────────────────────────────────────────────────────────
 heading("Tools and Software Used")
 body(
     "Proxmox Virtual Environment is the hypervisor that runs all of the "
-    "virtual machines in the range. It handles creating and managing VMs and "
+    "virtual machines in the range. It creates and manages the VMs and "
     "provides the virtual networking that keeps the corporate network and the "
-    "attacker network separated."
+    "attacker network separated. Proxmox is also the platform that Ludus "
+    "runs on, making it the foundation for everything else in the project."
 )
 body(
-    "Ludus Cyber Range sits on top of Proxmox and automates range creation. "
-    "Ludus reads the YAML configuration file, creates each machine from a "
-    "template, places it on the correct network, and hands off to Ansible to "
-    "finish configuration. Ludus is what makes a single command rebuild "
-    "possible (Ludus, n.d.)."
+    "Ludus Cyber Range sits on top of Proxmox and automates the creation of "
+    "the entire range from a single configuration file. Ludus creates each "
+    "machine from a template, places it on the correct virtual network, and "
+    "calls Ansible to finish configuration. Ludus follows the same "
+    "infrastructure as code model used by cloud providers and supports "
+    "deployment to Azure, bare metal servers, Google Cloud Platform, Hyper V, "
+    "Proxmox, and VMware Fusion. This makes the range portable to any "
+    "platform where Ludus can run (Ludus, n.d.)."
 )
 body(
-    "Ansible configures each virtual machine after it is created. The ten "
-    "Ansible roles written for this project cover every machine in the range, "
-    "from the domain controller to the FTP server. Ansible makes the "
-    "configuration repeatable because it always runs the same steps in the "
-    "same order from files stored in the repository."
+    "Ansible configures each virtual machine after it is created by Ludus. "
+    "The ten Ansible roles written for this project cover every machine in "
+    "the range, from the domain controller to the FTP server. Each role also "
+    "applies intentional security weaknesses so the blue team has realistic "
+    "problems to find and fix. Ansible makes the entire configuration "
+    "repeatable because it always runs the same steps in the same order from "
+    "files stored in the repository."
 )
 body(
     "Claude Code was used to write and debug the Ansible roles and the Ludus "
     "configuration file. Writing roles for Windows Active Directory and "
     "multiple Linux services involves many tasks, module options, and edge "
-    "cases. Claude Code generated role structure, suggested fixes when tasks "
-    "failed, and translated competition service requirements into working "
-    "Ansible code. It made completing all ten roles within the project "
-    "timeline possible."
+    "cases that are difficult to get right manually. Claude Code generated "
+    "role structure, suggested fixes when tasks failed, and translated "
+    "competition service requirements into working Ansible code. It made "
+    "completing all ten roles within the project timeline possible."
 )
 
 # ── 6 ─────────────────────────────────────────────────────────────────────────

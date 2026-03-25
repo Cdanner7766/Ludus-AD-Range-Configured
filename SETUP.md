@@ -2,26 +2,66 @@
 
 ## Prerequisites
 
-- Ludus host (v1.5+) with the following templates available:
+- A running Ludus host (v1.5+). If you have not installed Ludus yet, follow the [Ludus quick start guide](https://docs.ludus.cloud/docs/quick-start/).
+- The following five templates must be built before the range can be deployed:
   - `win2022-server-x64-template`
   - `win11-22h2-x64-enterprise-template`
   - `debian-12-x64-server-template`
   - `ubuntu-22.04-x64-server-template`
   - `kali-x64-desktop-template`
 
-Verify templates with:
+## Step 1: Build the Required Templates
+
+Ludus builds templates from scratch using Packer and ISO files. On a fresh install none are built yet. For full details on how templates work see the [Ludus templates documentation](https://docs.ludus.cloud/docs/using-ludus/templates).
+
+**Check what is already built:**
 ```bash
 ludus templates list
 ```
 
-## Step 1: Clone this repository on your Ludus host
+Any template showing `NOT BUILT` needs to be built before you continue.
+
+**Build all five templates at once:**
+```bash
+ludus templates build -n win2022-server-x64-template
+ludus templates build -n win11-22h2-x64-enterprise-template
+ludus templates build -n debian-12-x64-server-template
+ludus templates build -n ubuntu-22.04-x64-server-template
+ludus templates build -n kali-x64-desktop-template
+```
+
+> Each template build takes roughly 15 to 45 minutes depending on your hardware and internet speed. Windows templates take longer than Linux ones.
+
+**Monitor the build progress:**
+```bash
+ludus templates logs -f
+```
+
+Or check status at any time with:
+```bash
+ludus templates status
+```
+
+You can also watch builds in the Proxmox web UI at `https://<ludus-ip>:8006`. Get your Proxmox credentials with:
+```bash
+ludus user creds get
+```
+
+**Wait until all five templates show as built before continuing:**
+```bash
+ludus templates list
+```
+
+All five should show a green checkmark before you move on to the next step.
+
+## Step 2: Clone this Repository on your Ludus host
 
 ```bash
 git clone <repo-url> ~/Ludus-AD-Range-Configured
 cd ~/Ludus-AD-Range-Configured
 ```
 
-## Step 2: Add all Ansible roles to Ludus
+## Step 3: Add all Ansible roles to Ludus
 
 Each role must be registered with Ludus before it can be used in the range config:
 
@@ -43,13 +83,13 @@ Verify roles are installed:
 ludus ansible role list
 ```
 
-## Step 3: Set the range configuration
+## Step 4: Set the range configuration
 
 ```bash
 ludus range config set -f range-config.yaml
 ```
 
-## Step 4: Deploy the range
+## Step 5: Deploy the range
 
 ```bash
 ludus range deploy
@@ -155,7 +195,7 @@ sudo journalctl -u scoring_engine -f
 | RDP — Workstation | PC01-W11 (.21) | 3389 | CredSSP/NLA login (NTLMv2) | 50 |
 | **Total max per round** | | | | **800** |
 
-## Step 5: Validate the Deployment
+## Step 6: Validate the Deployment
 
 After deployment completes, SSH into the Kali VM and run the validation script:
 

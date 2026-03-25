@@ -270,14 +270,6 @@ body(
 # ── 8 ─────────────────────────────────────────────────────────────────────────
 heading("Installation and Deployment Instructions")
 
-p = doc.add_paragraph()
-pf = p.paragraph_format
-pf.alignment         = WD_ALIGN_PARAGRAPH.LEFT
-pf.space_before      = Pt(0)
-pf.space_after       = Pt(0)
-pf.line_spacing      = DBL_SPACE
-pf.first_line_indent = HALF_INCH
-
 def r(paragraph, text, bold=False):
     run = paragraph.add_run(text)
     run.bold      = bold
@@ -285,20 +277,35 @@ def r(paragraph, text, bold=False):
     run.font.size = FONT_SIZE
     return run
 
-r(p, "For teams setting up Proxmox and Ludus for the first time, the Ludus "
-     "quick start guide is at ")
-add_hyperlink(p, "https://docs.ludus.cloud/docs/quick-start/",
-              "https://docs.ludus.cloud/docs/quick-start/")
-r(p, ". For step by step instructions specific to this range, see ")
-add_hyperlink(p,
+# Paragraph 1: point to the two resources with embedded hyperlinks
+p1 = doc.add_paragraph()
+p1.paragraph_format.alignment         = WD_ALIGN_PARAGRAPH.LEFT
+p1.paragraph_format.space_before      = Pt(0)
+p1.paragraph_format.space_after       = Pt(0)
+p1.paragraph_format.line_spacing      = DBL_SPACE
+p1.paragraph_format.first_line_indent = HALF_INCH
+r(p1, "Full deployment instructions for this range are available in ")
+add_hyperlink(p1,
               "https://github.com/Cdanner7766/Ludus-AD-Range-Configured/blob/main/SETUP.md",
               "SETUP.md")
-r(p, " in this repository. At a high level: install Ludus on a Proxmox host "
-     "(Ludus, n.d.); clone this repository; register the Ansible roles with "
-     "Ludus; run the range deploy command with the provided configuration "
-     "file; and let Ansible configure the machines automatically. The scoring "
-     "engine starts as a system service on its own and is reachable on "
-     "port 8080 from a web browser.")
+r(p1, " in the project repository. Teams that have not yet installed Ludus "
+      "should begin with the Ludus quick start guide at ")
+add_hyperlink(p1, "https://docs.ludus.cloud/docs/quick-start/",
+              "https://docs.ludus.cloud/docs/quick-start/")
+r(p1, ".")
+
+# Paragraph 2: the high-level steps as clean prose
+body(
+    "At a high level, deployment involves five steps. First, install Ludus on "
+    "a Proxmox host and build the five required virtual machine templates "
+    "(Ludus, n.d.). Second, clone the project repository onto the Ludus host. "
+    "Third, register the ten Ansible roles from the repository with Ludus. "
+    "Fourth, apply the range configuration file to define the virtual machines "
+    "and networks. Fifth, run the range deploy command and allow Ansible to "
+    "configure each machine automatically. Once deployment finishes, the "
+    "scoring engine starts on its own as a system service and is reachable "
+    "on port 8080 from a web browser."
+)
 
 # ── REFERENCES ────────────────────────────────────────────────────────────────
 

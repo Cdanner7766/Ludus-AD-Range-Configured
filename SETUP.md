@@ -71,7 +71,7 @@ All five should show a green checkmark before you move on to the next step.
 ## Step 2: Clone this Repository on your Ludus host
 
 ```bash
-git clone <repo-url> ~/Ludus-AD-Range-Configured
+git clone https://github.com/Cdanner7766/Ludus-AD-Range-Configured ~/Ludus-AD-Range-Configured
 cd ~/Ludus-AD-Range-Configured
 ```
 

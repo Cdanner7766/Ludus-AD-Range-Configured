@@ -21,6 +21,9 @@ ludus templates list
 
 Any template showing `NOT BUILT` needs to be built before you continue.
 
+local:~$ git clone https://gitlab.com/badsectorlabs/ludus
+local:~$ cd ludus/templates
+
 **Build all five templates at once:**
 ```bash
 ludus templates build -n win2022-server-x64-template

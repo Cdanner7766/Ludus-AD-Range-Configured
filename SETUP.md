@@ -23,6 +23,12 @@ ludus templates list
 ```bash
 git clone https://gitlab.com/badsectorlabs/ludus
 cd ludus/templates
+ls -1
+ludus templates add -d win2022-server-x64-template
+ludus templates add -d win11-22h2-x64-enterprise-template
+ludus templates add -d debian-12-x64-server-template
+ludus templates add -d ubuntu-22.04-x64-server-template
+ludus templates add -d kali-x64-desktop-template
 ```
 
 Any template showing `NOT BUILT` needs to be built before you continue.

@@ -19,10 +19,15 @@ Ludus builds templates from scratch using Packer and ISO files. On a fresh insta
 ludus templates list
 ```
 
+**Add missing templates to the list**
+```bash
+git clone https://gitlab.com/badsectorlabs/ludus
+cd ludus/templates
+```
+
 Any template showing `NOT BUILT` needs to be built before you continue.
 
-local:~$ git clone https://gitlab.com/badsectorlabs/ludus
-local:~$ cd ludus/templates
+
 
 **Build all five templates at once:**
 ```bash

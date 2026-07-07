@@ -17,7 +17,7 @@ This Ludus range deploys a full Active Directory environment with 9 virtual mach
 VLAN 10 - Corporate Network (10.X.10.0/24)
 ├── DC01-2022    (.11)  - Domain Controller + DNS (Windows Server 2022)
 ├── PC01-W11     (.21)  - Workstation (Windows 11 Enterprise)
-├── WEB01        (.31)  - Web Server (Ubuntu 24.04)
+├── WEB01        (.31)  - Web Server (Ubuntu 22.04)
 ├── DB01         (.41)  - Database Server (Debian 12)
 ├── FILESVR      (.51)  - File Server (Windows Server 2022)
 ├── MAIL01       (.61)  - Mail Server (Debian 12)

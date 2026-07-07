@@ -357,7 +357,7 @@ Log out and repeat Steps 2.1–2.5 on each remaining Linux VM.
 
 ## Part 3 — Install Agents on Windows VMs
 
-Repeat these steps on each Windows VM: **DC01**, **PC01-W11**, **FILESVR**, and **DNS01**.
+Repeat these steps on each Windows VM: **DC01**, **PC01-W11**, and **FILESVR**.
 
 ### Step 3.1 — RDP or Console Into the Windows VM
 

@@ -187,7 +187,7 @@ ludus:
   #   - No chroot for local users (directory traversal)
   #   - No package updates applied
   # ============================================================
-  - vm_name: "{{ range_id }}-ubuntu-24-04-ftpsvr"
+  - vm_name: "{{ range_id }}-ubuntu-22-04-ftpsvr"
     hostname: "{{ range_id }}-FTP01"
     template: ubuntu-22.04-x64-server-template
     vlan: 10

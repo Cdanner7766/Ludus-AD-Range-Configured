@@ -52,7 +52,7 @@ WEB="${BASE}.31"
 DB="${BASE}.41"
 FILE="${BASE}.51"
 MAIL="${BASE}.61"
-DNS="${BASE}.71"
+DNS="${BASE}.11"
 FTP="${BASE}.81"
 
 echo -e "${BOLD}CCDC Range Validation${NC}"
@@ -75,11 +75,10 @@ declare -A HOSTS=(
     ["DB01 (${DB})"]="$DB"
     ["FILESVR (${FILE})"]="$FILE"
     ["MAIL01 (${MAIL})"]="$MAIL"
-    ["DNS01 (${DNS})"]="$DNS"
     ["FTP01 (${FTP})"]="$FTP"
 )
 
-for name in "DC (${DC})" "PC01 (${PC01})" "WEB01 (${WEB})" "DB01 (${DB})" "FILESVR (${FILE})" "MAIL01 (${MAIL})" "DNS01 (${DNS})" "FTP01 (${FTP})"; do
+for name in "DC (${DC})" "PC01 (${PC01})" "WEB01 (${WEB})" "DB01 (${DB})" "FILESVR (${FILE})" "MAIL01 (${MAIL})" "FTP01 (${FTP})"; do
     ip="${HOSTS[$name]}"
     if ping -c 1 -W 3 "$ip" &>/dev/null; then
         pass "$name - reachable"

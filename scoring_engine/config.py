@@ -135,8 +135,8 @@ def _build_services():
         {
             "id": "dns",
             "name": "DNS Server",
-            "machine": "DNS01",
-            "host": f"{n}.71",
+            "machine": "DC01",
+            "host": f"{n}.11",
             "port": 53,
             "check_type": "dns",
             "dns_query": "web.ludus.domain",
